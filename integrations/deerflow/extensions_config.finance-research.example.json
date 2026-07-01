@@ -1,0 +1,28 @@
+{
+  "mcpServers": {
+    "financial-data": {
+      "command": "python",
+      "args": [
+        "-m",
+        "your_financial_data_mcp_server"
+      ],
+      "enabled": true,
+      "env": {
+        "FINANCIAL_DATA_SERVICE_URL": "$FINANCIAL_DATA_SERVICE_URL",
+        "FINANCIAL_DATA_SERVICE_TOKEN": "$FINANCIAL_DATA_SERVICE_TOKEN",
+        "FINANCIAL_DATA_SNAPSHOT_ROOT": "$FINANCIAL_DATA_SNAPSHOT_ROOT"
+      }
+    }
+  },
+  "skills": {
+    "deep-research": {
+      "enabled": true
+    },
+    "data-analysis": {
+      "enabled": true
+    },
+    "chart-visualization": {
+      "enabled": true
+    }
+  }
+}
