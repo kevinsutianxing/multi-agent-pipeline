@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kevinsutianxing/multi-agent-pipeline/schemas/task.schema.json",
+  "title": "FinancialResearchTask",
+  "type": "object",
+  "required": [
+    "task_id",
+    "objective",
+    "as_of_date",
+    "research_type",
+    "requested_by",
+    "allowed_sources",
+    "required_outputs",
+    "stop_conditions"
+  ],
+  "properties": {
+    "task_id": { "type": "string" },
+    "objective": { "type": "string" },
+    "as_of_date": { "type": "string", "format": "date" },
+    "requested_by": { "type": "string" },
+    "research_type": {
+      "type": "string",
+      "enum": [
+        "quantitative_factor_research",
+        "backtest",
+        "industry_trend_research",
+        "valuation_research",
+        "macro_market_monitoring",
+        "pipeline_engineering",
+        "pr_review",
+        "other"
+      ]
+    },
+    "methodology_risk": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    },
+    "allowed_sources": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "forbidden_sources": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "hypotheses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "statement", "evidence_required", "falsification_test"],
+        "properties": {
+          "id": { "type": "string" },
+          "statement": { "type": "string" },
+          "evidence_required": { "type": "array", "items": { "type": "string" } },
+          "falsification_test": { "type": "string" }
+        }
+      }
+    },
+    "data_requests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "source_system", "dataset", "fields", "as_of_date"],
+        "properties": {
+          "id": { "type": "string" },
+          "source_system": { "type": "string" },
+          "dataset": { "type": "string" },
+          "fields": { "type": "array", "items": { "type": "string" } },
+          "entities": { "type": "array", "items": { "type": "string" } },
+          "frequency": { "type": "string" },
+          "observation_window": { "type": "string" },
+          "as_of_date": { "type": "string", "format": "date" }
+        }
+      }
+    },
+    "required_outputs": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "validation_gates": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "stop_conditions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "human_approval_required": { "type": "boolean", "default": false }
+  },
+  "additionalProperties": true
+}
