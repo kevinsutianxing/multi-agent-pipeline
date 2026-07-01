@@ -1,173 +1,145 @@
 # DeerFlow Capability Assessment and Architecture Decision
 
 **Assessment date:** 2026-07-01  
-**Official project assessed:** `bytedance/deer-flow`, DeerFlow 2.x `main`
+**Official project:** `bytedance/deer-flow`  
+**Assessed upstream baseline:** commit `e5424cbab9a2a1ec9a09aa9d4c6737aab7ad42c1` on the DeerFlow 2.x line
+
+This assessment is version-specific. Re-run it when the pinned production DeerFlow version changes materially.
 
 ## Executive decision
 
-The system contains two different things that happen to share the DeerFlow name:
+The system contains two different components that share the DeerFlow name:
 
-1. **Official ByteDance DeerFlow 2.x** — a LangGraph/LangChain super-agent harness with custom agents, subagents, skills, MCP tools, sandbox execution, memory, Gateway APIs, and ACP delegation.
-2. **The user's custom DeerFlow financial-data service** — a separate data service whose transport and dataset catalogue are not yet documented in this repository.
+1. **Official ByteDance DeerFlow 2.x** — a LangGraph/LangChain agent execution harness with Custom Agents, subagents, Skills, MCP tools, Sandbox execution, memory, Gateway APIs, tracing, and ACP delegation.
+2. **The user's custom DeerFlow financial-data service** — a separate data plane whose concrete transport, authentication, dataset catalogue, and field semantics are not yet documented in this repository.
 
-They must not be modeled as one component.
-
-The chosen architecture is:
+They must not share one trust boundary.
 
 ```text
-Codex external chief planner and integrator
+External Codex chief planner and integrator
                     |
                     v
          deterministic run controller
                     |
-           official DeerFlow Gateway
+            official DeerFlow Gateway
        /              |                \
 finance-evidence  industry-research  quant-analysis
- custom agent       custom agent      custom agent
+ Custom Agent       Custom Agent      Custom Agent
        \              |                /
                     MCP
                     |
-       custom DeerFlow financial-data service
+       custom financial-data service
                     |
        immutable snapshots + metadata + hashes
+                    |
+       deterministic evidence and release gates
+                    |
+        external independent reviewer
 ```
 
-Official DeerFlow is an **execution and delegation runtime**. The custom financial-data service is the **data plane**. Codex remains the research control-plane planner. Deterministic scripts and an independent reviewer remain the release authority.
+Official DeerFlow is the **agent execution runtime**. The custom financial-data service is the **financial data plane**. Codex remains the external research planner. Deterministic scripts and a separately controlled reviewer remain the release authority.
 
-## What DeerFlow 2.x is good at
+## What official DeerFlow is good at
 
-### 1. Long-horizon execution
+### Long-horizon execution
 
-DeerFlow provides a Lead Agent, thread persistence, planning mode, subagent delegation, configurable recursion limits, token budgets, loop detection, and recovery for interrupted tool-call sequences. This makes it suitable for multi-step research collection and artifact production.
+DeerFlow provides a Lead Agent, persistent threads, planning mode, bounded recursion, token budgets, loop detection, recovery handling, Sandbox tools, and artifact presentation. It is suitable for multi-step evidence collection and reproducible artifact production.
 
-### 2. Scoped parallel workers
+### Scoped parallel work
 
-Built-in and custom subagents have isolated contexts and can execute in parallel. Custom agents can be restricted by model, skill whitelist, and tool-group whitelist. This is a good match for separate financial evidence, industry research, and quantitative analysis roles.
+Built-in and Custom subagents run with isolated contexts and can execute in parallel. Custom Agents can be restricted by model, Skill whitelist, and Tool Group whitelist.
 
-### 3. External agent delegation
+Official source review confirmed that delegated subagents inherit the parent Custom Agent's Tool Groups, and their Skills are constrained by the parent policy. This makes bounded industry-research parallelism viable when global Guardrails are also enabled.
 
-DeerFlow supports Agent Connect Protocol agents, including Codex and Claude Code through compatible ACP adapters. This is useful for bounded implementation and debugging tasks.
+### External agent delegation
 
-ACP should not be used to create fake reviewer independence. A Claude Code process spawned by the same DeerFlow execution may be useful as a critic, but the final release reviewer should run through a separately controlled review task with its own identity and report artifact.
+ACP can invoke Codex, Claude Code, and other compatible agents. This is useful for bounded implementation and debugging.
 
-### 4. Extensible data/tool access
+ACP process separation is not sufficient final-review independence. A reviewer spawned under the same primary DeerFlow run remains part of that execution authority.
 
-MCP tools, Python tools, and community search/fetch tools can be added without modifying the harness. This is the correct extension point for the custom financial-data service.
+### Extensible data access
 
-### 5. Sandbox and artifact production
+MCP and Python tools are the correct extension points for the user's financial-data service. Financial data should not be embedded in agent memory or inferred from model knowledge.
 
-DeerFlow can use local, container, cloud, or Kubernetes sandboxes and gives each thread a workspace, uploads directory, and outputs directory. It can execute code, process datasets, generate charts, and preserve artifacts.
+### Sandbox and observability
 
-### 6. Observability
+DeerFlow supports local, container, E2B, and Kubernetes-style Sandbox providers and streams detailed run events. Gateway thread/run IDs and tracing are valuable operational evidence.
 
-The Gateway records thread/run identities and can stream detailed events. DeerFlow also supports LangSmith and Langfuse tracing, including session, user, assistant, model, and environment correlation.
+Operational traces do not prove financial facts. Research still requires immutable source snapshots, query parameters, hashes, publication/availability timing, calculation lineage, and Claim IDs.
 
-Tracing is operational evidence, not financial source evidence. Research runs must still preserve source snapshots, query parameters, hashes, calculation lineage, and claim mappings.
+## What official DeerFlow does not guarantee
 
-## What DeerFlow 2.x does not guarantee
+### Financial semantics
 
-### 1. Financial source correctness
+DeerFlow does not inherently know whether:
 
-DeerFlow does not know whether a price is adjusted correctly, whether a financial statement value is cumulative or single-quarter, whether an index constituent list is point-in-time, or whether a macro series has been revised.
+- prices are raw, split-adjusted, dividend-adjusted, or total-return;
+- a financial statement value is cumulative or single-quarter;
+- an index constituent list is point-in-time;
+- a macro series is original or revised;
+- an entity/ticker mapping was valid on a historical date;
+- units, currencies, accounting scope, and filing dates are comparable.
 
-Those guarantees belong in the custom financial-data service and deterministic validation layer.
+These guarantees belong in the custom financial-data service and deterministic validation layer.
 
-### 2. Citation truth
+### Citation truth
 
-A deep-research agent can find and summarize sources, but its prose is not proof that a source exists or supports a claim. Source retrieval must produce preserved snapshots and stable evidence IDs.
+A research agent can discover and summarize sources, but its prose is not proof that a source exists or supports a Claim. Material evidence must be preserved as a snapshot and assigned a stable evidence ID.
 
-### 3. Reviewer independence
+### Reviewer independence
 
-Subagents and ACP agents are managed by the DeerFlow parent process. They provide context separation, not organizational or release independence.
+Subagents and ACP agents provide context/process separation, not organizational or release independence. Final review must be controlled separately from the primary DeerFlow run.
 
-### 4. Safe autonomous skill evolution
+### Safe autonomous Skill evolution
 
-DeerFlow can autonomously create or improve skills. This is inappropriate for production financial research because one run could silently alter future methodology. Skill evolution must remain disabled. Approved skills must be versioned in Git and mounted read-only.
+DeerFlow can create or improve Skills. Production financial research must disable Skill Evolution because a single run must not silently alter future methodology. Approved Skills should be versioned, reviewed, regression-tested, and mounted read-only.
 
-### 5. Research-safe memory by default
+### Research-safe memory by default
 
-DeerFlow memory extracts facts and summaries from conversations and injects them into future prompts. This is useful for user preferences and workflow context, but it can contaminate point-in-time research with stale or unsupported facts.
+DeerFlow can extract facts from conversations and inject them into later prompts. This may contaminate point-in-time research with stale or unsupported facts. Production research Custom Agents should have memory injection disabled.
 
-Production research agents should use a dedicated DeerFlow profile with memory injection disabled. Approved operational knowledge belongs in versioned skills or controlled memory, never in the evidence chain.
-
-## Role design inside official DeerFlow
+## Approved Custom Agent roles
 
 ### `finance-evidence-agent`
 
-Purpose:
+Owns bounded MCP requests, evidence/dataset ID collection, and data-gap reporting.
 
-- execute bounded requests against financial-data MCP tools;
-- collect filings and official-source evidence;
-- return stable evidence and dataset IDs;
-- report gaps and conflicts.
+It may not:
 
-Restrictions:
-
-- no investment conclusions;
-- no self-validation;
-- no silent symbol mapping, backfill, proxy substitution, or unit conversion;
-- no untracked web values in material claims;
-- no unrestricted shell access.
+- validate its own data;
+- issue investment conclusions;
+- silently map tickers, backfill data, convert units, or substitute proxies;
+- invent metadata that should come from the financial-data adapter.
 
 ### `industry-research-agent`
 
-Purpose:
+Owns value-chain mapping, primary-source discovery, industry evidence maps, and contradiction collection.
 
-- map value chains, entities, competitors, regulation, supply/demand, capacity, pricing, inventory, utilization, and industry KPIs;
-- gather primary and reputable secondary evidence;
-- identify contradictory sources and missing evidence.
-
-Restrictions:
-
-- web search/fetch is evidence discovery, not source acceptance;
-- material facts must resolve to snapshot-backed evidence IDs;
-- no direct access to portfolio or recommendation tools.
+Generic search/fetch is discovery only. Material facts must resolve to snapshot-backed evidence IDs.
 
 ### `quant-analysis-agent`
 
-Purpose:
+Owns reproducible calculations on acquisition-gate-approved datasets.
 
-- read only datasets that passed the acquisition gate;
-- run reproducible calculations in an isolated sandbox;
-- produce calculation manifests, diagnostics, charts, and claim candidates.
+It may not access live unvalidated data, modify raw snapshots, change methodology after seeing results, or decide release.
 
-Restrictions:
+## Financial-data MCP decision
 
-- no live web search or unvalidated data tools;
-- no modification of raw snapshots;
-- no changing methodology after seeing results;
-- no final release decision.
+The user's custom service should be connected through a narrow snapshot-first MCP server or equivalent adapter.
 
-## Financial-data MCP design
-
-The custom DeerFlow financial-data service should be exposed to official DeerFlow through a narrow MCP server or equivalent Python tool adapter.
-
-The MCP layer must be snapshot-first. A tool call should not merely return rows. It should return or create:
-
-```json
-{
-  "status": "OK",
-  "source_id": "src-...",
-  "evidence_id": "ev-...",
-  "dataset_id": "ds-...",
-  "provider": "provider-name",
-  "query_parameters": {},
-  "retrieved_at": "ISO-8601",
-  "as_of": "YYYY-MM-DD",
-  "published_at": null,
-  "available_at": null,
-  "snapshot_path": "content-addressed-or-run-relative-path",
-  "content_sha256": "64-hex",
-  "unit": "...",
-  "currency": "...",
-  "timezone": "...",
-  "frequency": "...",
-  "adjustment": "...",
-  "validation_status": "PENDING"
-}
+```text
+bounded request
+  -> provider request
+  -> immutable raw snapshot
+  -> normalized snapshot
+  -> source/dataset metadata
+  -> validation_status=PENDING
+  -> deterministic acquisition gate
 ```
 
-Recommended initial tools:
+A tool call that only returns rows, a DataFrame preview, prose, or `success=true` is insufficient.
+
+Recommended initial logical tools:
 
 - `resolve_financial_entity`
 - `fetch_market_data_snapshot`
@@ -177,124 +149,127 @@ Recommended initial tools:
 - `fetch_industry_dataset_snapshot`
 - `describe_dataset`
 - `list_data_revisions`
+- `capture_web_evidence_snapshot`
 
-The adapter should preserve raw provider responses before normalization. The agent should receive IDs and controlled previews; it should not be responsible for inventing manifest metadata.
+The full contract is in `docs/FINANCE_DATA_MCP_CONTRACT.md` and `schemas/finance-data-snapshot.schema.json`.
 
-## Production DeerFlow profile
+## Production profile decisions
 
-### Memory
+### Pin everything material
+
+Production must pin:
+
+- official DeerFlow tag or commit;
+- config version and hash;
+- Custom Agent specs;
+- enabled Skills and hashes;
+- MCP server versions and tool schemas;
+- Sandbox image digest;
+- model/provider configuration.
+
+Do not track `main`, `master`, `HEAD`, or `latest`.
+
+### Memory and Skills
 
 ```yaml
 memory:
   enabled: true
   injection_enabled: false
-```
 
-Memory storage may remain enabled for operational review, but research custom agents should not receive extracted memory facts in their prompt.
-
-### Skill evolution
-
-```yaml
 skill_evolution:
   enabled: false
-```
 
-### Tool search
-
-```yaml
 tool_search:
   enabled: true
 ```
 
-This is recommended when financial MCP servers expose many tools. Deferred loading reduces prompt size and tool-selection confusion.
+Memory storage may remain for operational review, but extracted memory must not enter the financial evidence chain.
 
 ### Sandbox
 
-Use container or Kubernetes isolation. Do not enable host bash for production research.
-
-```yaml
-sandbox:
-  use: deerflow.community.aio_sandbox:AioSandboxProvider
-  replicas: 3
-```
-
-Raw evidence should be stored outside the agent's writable workspace or copied into a read-only mount. Hash verification remains mandatory even with read-only storage.
+Use container, Kubernetes, or E2B isolation. Host bash must remain disabled. Raw evidence should be immutable or read-only and hash-verified.
 
 ### Guardrails
 
-Enable fail-closed guardrails and restrict tools by agent role. Tool groups reduce what is exposed; guardrails decide whether each attempted call is authorized.
+Use explicit per-Agent Tool Groups plus fail-closed global Guardrails. The built-in allowlist is a second boundary, not a substitute for argument/path/network-aware production policy.
 
-At minimum, block:
+At minimum block:
 
-- unrestricted host shell;
-- arbitrary network exfiltration;
-- writes to raw evidence stores;
-- writes to approved skills or methodology directories;
-- direct release/publishing actions from research agents.
+- Custom Agent self-modification (`update_agent`/`setup_agent`);
+- unrestricted ACP delegation from production research Agents;
+- arbitrary host shell and network exfiltration;
+- writes to raw evidence, approved Skills, and methodology directories;
+- publishing/release actions from research Agents.
 
-### Custom-agent management API
+### Custom Agent management API
 
-The official custom-agent API is disabled unless explicitly enabled. Enable it only on a trusted management network, create/sync approved agents, then restrict management access. Do not expose it publicly.
+Enable it only on a trusted management path for synchronization. Restrict or disable it afterward. Preflight must record the synchronization timestamp and expected Agent inventory.
 
 ## Codex-to-DeerFlow invocation
 
-Codex calls the official Gateway using `adapters/deerflow_gateway.py`. The adapter follows the official LangGraph-compatible flow:
+`adapters/deerflow_gateway.py` follows the official Gateway/LangGraph-compatible flow:
 
 1. `GET /health`
 2. `POST /api/langgraph/threads`
 3. `POST /api/langgraph/threads/{thread_id}/runs/stream`
 
-A custom agent is selected through `assistant_id`. DeerFlow routes non-default assistant IDs through the Lead Agent factory with the matching custom-agent configuration.
-
-The adapter records:
+A Custom Agent is selected by `assistant_id`. The adapter preserves:
 
 - exact request payload;
-- selected custom agent and execution mode;
-- DeerFlow thread and run IDs;
+- selected Agent and execution mode;
+- DeerFlow thread/run IDs;
 - full raw SSE event stream;
-- final text and artifact references;
+- final response and artifact references;
 - request and event-stream SHA-256 hashes.
 
-These records support operational audit and reproducibility. They are not a substitute for source manifests.
+These records support execution audit and reproducibility, not financial source validation.
 
 ## Recommended execution modes
 
-| Task | DeerFlow mode | Subagents | Notes |
+| Task | Mode | Subagents | Decision |
 |---|---|---:|---|
-| One bounded financial-data request | standard | No | Prefer deterministic MCP call path |
-| Industry evidence collection | ultra | Yes, max 2–3 | Parallelize independent source families |
-| Quantitative calculation | pro | No by default | Keep one reproducible analysis context |
-| Broad mixed research | ultra | Yes | Use only after Codex has produced a task DAG |
-| Final independent review | outside main DeerFlow run | No | Preserve reviewer independence |
+| Bounded financial MCP request | `standard` | No | Prefer direct, narrow data requests |
+| Industry evidence collection | `ultra` | 2–3 | Parallelize independent source families |
+| Quantitative calculation | `pro` | No by default | Keep one reproducible analysis context |
+| Broad mixed evidence task | `ultra` | Bounded | Only after Codex creates a task DAG |
+| Final independent review | Outside primary run | No | Preserve release independence |
 
-## Version and compatibility policy
+## Enforced preflight and release behavior
 
-DeerFlow 2.x is a ground-up rewrite and is actively developed. Production integration must pin:
+The external controller requires:
 
-- DeerFlow Git tag or commit;
-- config version;
-- custom-agent specs;
-- enabled skills and their hashes;
-- MCP server versions and tool schemas;
-- sandbox image digest;
-- model/provider configuration.
+```text
+INTAKE -> PLANNED -> DEERFLOW_READY -> ACQUIRED
+```
 
-Do not track `main` or `latest` in a reproducible financial research environment.
+It cannot enter `ACQUIRED` directly from `PLANNED`.
 
-## Remaining inputs required from the custom data service
+Preflight checks:
 
-The following are still required before a real end-to-end financial run:
+- pinned official ref and Sandbox image;
+- config and extensions hashes;
+- isolated Sandbox and host-bash policy;
+- memory, Skill Evolution, Tool Search, and Guardrail policy;
+- placeholder-free financial MCP configuration;
+- official DeerFlow health;
+- approved Custom Agent inventory when management access permits.
+
+Release reruns live DeerFlow preflight using the same recorded deployment inputs. Missing or malformed reports fail closed.
+
+## Remaining inputs required from the custom financial-data service
+
+A real end-to-end financial run still requires:
 
 - repository or deployment address;
 - HTTP, MCP, CLI, or SDK transport;
 - authentication method;
-- available dataset catalogue and field dictionary;
+- dataset catalogue and field dictionary;
 - provider/source lineage;
-- symbol/entity mapping rules;
-- unit, currency, timezone, frequency, and adjustment definitions;
-- publication, revision, and point-in-time availability rules;
-- pagination, rate limit, retry, and error behavior;
+- entity/symbol mapping rules;
+- unit, currency, timezone, frequency, adjustment, accounting, and revision definitions;
+- publication and point-in-time availability rules;
+- pagination, rate-limit, retry, and error behavior;
 - licensing and permitted storage/use;
-- representative fixtures for market, fundamental, macro, filing, and industry data.
+- representative market, fundamental, macro, filing, and industry fixtures.
 
-Until these exist, the integration can validate the official DeerFlow runtime and the data-plane contract, but it cannot claim the user's financial datasets are production-verified.
+Until these exist, the repository can validate the official DeerFlow runtime integration, security profile, adapter contracts, and deterministic gates, but it cannot claim the user's financial datasets are production-verified.
