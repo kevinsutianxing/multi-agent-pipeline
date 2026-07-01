@@ -17,15 +17,6 @@ from pathlib import Path
 from typing import Any
 
 STATE_FILE = "run_state.json"
-TERMINAL_STATES = {
-    "COMPLETED",
-    "BLOCKED_DATA",
-    "BLOCKED_METHOD",
-    "BLOCKED_EXTERNAL",
-    "NEEDS_HUMAN",
-    "MAX_RETRIES_EXCEEDED",
-    "SECURITY_BLOCKED",
-}
 
 CHECKPOINT_REQUIREMENTS = {
     "PLANNED": ("research_brief.json", "research_plan.json"),
@@ -117,17 +108,18 @@ def init_run(args: argparse.Namespace) -> int:
     if state_path.exists() and not args.force:
         raise ValueError(f"state already exists: {state_path}; use --force to replace")
 
+    as_of = args.as_of.isoformat()
     brief = {
         "run_id": args.run_id,
         "topic": args.topic,
         "research_type": args.research_type,
-        "as_of": args.as_of,
+        "as_of": as_of,
         "created_at": now_iso(),
     }
     state = {
         "version": 1,
         "run_id": args.run_id,
-        "as_of": args.as_of,
+        "as_of": as_of,
         "research_type": args.research_type,
         "state": "INTAKE",
         "attempts": {},
@@ -149,15 +141,27 @@ def checkpoint(args: argparse.Namespace) -> int:
     allowed = ALLOWED_PREVIOUS[target]
     if current not in allowed:
         raise ValueError(
-            f"cannot checkpoint {target} from {current}; allowed previous states: {sorted(allowed)}"
+            f"cannot checkpoint {target} from {current}; "
+            f"allowed previous states: {sorted(allowed)}"
         )
     artifacts = require_files(run_dir, CHECKPOINT_REQUIREMENTS[target])
     if target == "REPRODUCED":
         report = read_json(run_dir / "reproducibility_report.json")
         if report.get("status") != "PASS":
-            record_transition(run_dir, state, "BLOCKED_METHOD", "reproducibility report did not pass")
+            record_transition(
+                run_dir,
+                state,
+                "BLOCKED_METHOD",
+                "reproducibility report did not pass",
+            )
             return 1
-    state = record_transition(run_dir, state, target, f"{target} artifacts verified", artifacts)
+    state = record_transition(
+        run_dir,
+        state,
+        target,
+        f"{target} artifacts verified",
+        artifacts,
+    )
     print(json.dumps(state, ensure_ascii=False, indent=2))
     return 0
 
@@ -170,16 +174,27 @@ def gate(args: argparse.Namespace) -> int:
     expected_state = "ACQUIRED" if stage == "acquisition" else "REPRODUCED"
     if state.get("state") != expected_state:
         raise ValueError(
-            f"{stage} gate requires state {expected_state}, got {state.get('state')}"
+            f"{stage} gate requires state {expected_state}, "
+            f"got {state.get('state')}"
         )
 
     if stage == "acquisition":
         merge_rc = run_command(
-            [sys.executable, str(repo_root / "scripts" / "merge_manifests.py"), "--run-dir", str(run_dir)],
+            [
+                sys.executable,
+                str(repo_root / "scripts" / "merge_manifests.py"),
+                "--run-dir",
+                str(run_dir),
+            ],
             repo_root,
         )
         if merge_rc != 0:
-            record_transition(run_dir, state, "BLOCKED_DATA", "source manifest merge failed")
+            record_transition(
+                run_dir,
+                state,
+                "BLOCKED_DATA",
+                "source manifest merge failed",
+            )
             return 1
         report_path = run_dir / "acquisition_gate_report.json"
         success_state = "DATA_VALIDATED"
@@ -227,19 +242,38 @@ def record_review(args: argparse.Namespace) -> int:
     state = load_state(run_dir)
     if state.get("state") != "RELEASE_DATA_VALIDATED":
         raise ValueError(
-            f"review requires RELEASE_DATA_VALIDATED, got {state.get('state')}"
+            "review requires RELEASE_DATA_VALIDATED, "
+            f"got {state.get('state')}"
         )
     report_path = run_dir / "review_report.json"
     report = read_json(report_path)
     status = report.get("status")
     critical = report.get("critical_count")
     if status == "NEEDS_HUMAN":
-        record_transition(run_dir, state, "NEEDS_HUMAN", "independent reviewer requested human decision", [report_path.name])
+        record_transition(
+            run_dir,
+            state,
+            "NEEDS_HUMAN",
+            "independent reviewer requested human decision",
+            [report_path.name],
+        )
         return 1
     if status != "PASS" or not isinstance(critical, int) or critical != 0:
-        record_transition(run_dir, state, "BLOCKED_METHOD", "independent review failed", [report_path.name])
+        record_transition(
+            run_dir,
+            state,
+            "BLOCKED_METHOD",
+            "independent review failed",
+            [report_path.name],
+        )
         return 1
-    state = record_transition(run_dir, state, "REVIEWED", "independent review passed", [report_path.name])
+    state = record_transition(
+        run_dir,
+        state,
+        "REVIEWED",
+        "independent review passed",
+        [report_path.name],
+    )
     print(json.dumps(state, ensure_ascii=False, indent=2))
     return 0
 
@@ -260,7 +294,13 @@ def release(args: argparse.Namespace) -> int:
     for filename in required_reports:
         report = read_json(run_dir / filename)
         if report.get("status") != "PASS":
-            record_transition(run_dir, state, "BLOCKED_METHOD", f"{filename} is not PASS", [filename])
+            record_transition(
+                run_dir,
+                state,
+                "BLOCKED_METHOD",
+                f"{filename} is not PASS",
+                [filename],
+            )
             return 1
 
     release_requirements_path = run_dir / "release_requirements.json"
@@ -315,19 +355,31 @@ def build_parser() -> argparse.ArgumentParser:
     init_parser.add_argument("--run-dir", required=True, type=Path)
     init_parser.add_argument("--run-id", required=True)
     init_parser.add_argument("--topic", required=True)
-    init_parser.add_argument("--research-type", required=True, choices=("quant", "industry", "company", "mixed"))
+    init_parser.add_argument(
+        "--research-type",
+        required=True,
+        choices=("quant", "industry", "company", "mixed"),
+    )
     init_parser.add_argument("--as-of", required=True, type=dt.date.fromisoformat)
     init_parser.add_argument("--force", action="store_true")
     init_parser.set_defaults(func=init_run)
 
     checkpoint_parser = subparsers.add_parser("checkpoint")
     checkpoint_parser.add_argument("--run-dir", required=True, type=Path)
-    checkpoint_parser.add_argument("--phase", required=True, choices=tuple(CHECKPOINT_REQUIREMENTS))
+    checkpoint_parser.add_argument(
+        "--phase",
+        required=True,
+        choices=tuple(CHECKPOINT_REQUIREMENTS),
+    )
     checkpoint_parser.set_defaults(func=checkpoint)
 
     gate_parser = subparsers.add_parser("gate")
     gate_parser.add_argument("--run-dir", required=True, type=Path)
-    gate_parser.add_argument("--stage", required=True, choices=("acquisition", "release"))
+    gate_parser.add_argument(
+        "--stage",
+        required=True,
+        choices=("acquisition", "release"),
+    )
     gate_parser.set_defaults(func=gate)
 
     review_parser = subparsers.add_parser("review")
