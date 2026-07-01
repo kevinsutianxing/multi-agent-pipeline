@@ -43,8 +43,10 @@ jobs:
         run: >-
           python -m py_compile
           adapters/deerflow_gateway.py
+          adapters/fmdata_client.py
           scripts/deerflow_preflight.py
           scripts/merge_manifests.py
+          scripts/merge_dataset_manifests.py
           scripts/validate_evidence.py
           scripts/research_control.py
       - name: Validate JSON contracts and integration specs
@@ -76,3 +78,4 @@ jobs:
           tests/test_research_control.py
           tests/test_deerflow_gateway.py
           tests/test_deerflow_preflight.py
+          tests/test_fmdata_client.py
