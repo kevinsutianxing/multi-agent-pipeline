@@ -101,6 +101,51 @@ def run_command(command: list[str], cwd: Path) -> int:
     return int(completed.returncode)
 
 
+def read_report_or_block(
+    run_dir: Path,
+    state: dict[str, Any],
+    report_path: Path,
+    *,
+    blocked_state: str,
+    reason: str,
+) -> dict[str, Any] | None:
+    try:
+        return read_json(report_path)
+    except ValueError as exc:
+        artifacts = [report_path.name] if report_path.exists() else []
+        record_transition(
+            run_dir,
+            state,
+            blocked_state,
+            f"{reason}: {exc}",
+            artifacts,
+        )
+        return None
+
+
+def build_deerflow_preflight_command(
+    repo_root: Path,
+    report_path: Path,
+    inputs: dict[str, Any],
+) -> list[str]:
+    command = [
+        sys.executable,
+        str(repo_root / "scripts" / "deerflow_preflight.py"),
+        "--deployment-manifest",
+        str(inputs["deployment_manifest"]),
+        "--extensions-config",
+        str(inputs["extensions_config"]),
+        "--report",
+        str(report_path),
+    ]
+    config_path = inputs.get("config")
+    if config_path:
+        command.extend(["--config", str(config_path)])
+    if inputs.get("skip_live_agent_inventory") is True:
+        command.append("--skip-live-agent-inventory")
+    return command
+
+
 def init_run(args: argparse.Namespace) -> int:
     run_dir = args.run_dir.resolve()
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -177,26 +222,26 @@ def deerflow_preflight(args: argparse.Namespace) -> int:
             f"got {current}"
         )
 
+    inputs = {
+        "deployment_manifest": str(args.deployment_manifest.resolve()),
+        "extensions_config": str(args.extensions_config.resolve()),
+        "config": str(args.config.resolve()) if args.config is not None else None,
+        "skip_live_agent_inventory": bool(args.skip_live_agent_inventory),
+    }
     report_path = run_dir / "deerflow_preflight_report.json"
-    command = [
-        sys.executable,
-        str(repo_root / "scripts" / "deerflow_preflight.py"),
-        "--deployment-manifest",
-        str(args.deployment_manifest.resolve()),
-        "--extensions-config",
-        str(args.extensions_config.resolve()),
-        "--report",
-        str(report_path),
-    ]
-    if args.config is not None:
-        command.extend(["--config", str(args.config.resolve())])
-    if args.skip_live_agent_inventory:
-        command.append("--skip-live-agent-inventory")
-    if args.offline:
-        command.append("--offline")
-
-    rc = run_command(command, repo_root)
-    report = read_json(report_path)
+    rc = run_command(
+        build_deerflow_preflight_command(repo_root, report_path, inputs),
+        repo_root,
+    )
+    report = read_report_or_block(
+        run_dir,
+        state,
+        report_path,
+        blocked_state="BLOCKED_EXTERNAL",
+        reason="official DeerFlow deployment preflight produced no valid report",
+    )
+    if report is None:
+        return 1
     if rc != 0 or report.get("status") != "PASS":
         record_transition(
             run_dir,
@@ -207,6 +252,7 @@ def deerflow_preflight(args: argparse.Namespace) -> int:
         )
         return 1
 
+    state["deerflow_preflight_inputs"] = inputs
     state = record_transition(
         run_dir,
         state,
@@ -267,7 +313,15 @@ def gate(args: argparse.Namespace) -> int:
         str(report_path),
     ]
     rc = run_command(command, repo_root)
-    report = read_json(report_path)
+    report = read_report_or_block(
+        run_dir,
+        state,
+        report_path,
+        blocked_state="BLOCKED_DATA",
+        reason=f"{stage} evidence gate produced no valid report",
+    )
+    if report is None:
+        return 1
     if rc != 0 or report.get("status") != "PASS":
         record_transition(
             run_dir,
@@ -330,27 +384,74 @@ def record_review(args: argparse.Namespace) -> int:
     return 0
 
 
+def rerun_deerflow_preflight_for_release(
+    repo_root: Path,
+    run_dir: Path,
+    state: dict[str, Any],
+) -> bool:
+    inputs = state.get("deerflow_preflight_inputs")
+    if not isinstance(inputs, dict):
+        record_transition(
+            run_dir,
+            state,
+            "BLOCKED_EXTERNAL",
+            "release cannot reproduce DeerFlow preflight: inputs missing from run state",
+        )
+        return False
+
+    report_path = run_dir / "deerflow_release_preflight_report.json"
+    rc = run_command(
+        build_deerflow_preflight_command(repo_root, report_path, inputs),
+        repo_root,
+    )
+    report = read_report_or_block(
+        run_dir,
+        state,
+        report_path,
+        blocked_state="BLOCKED_EXTERNAL",
+        reason="release DeerFlow preflight produced no valid report",
+    )
+    if report is None:
+        return False
+    if rc != 0 or report.get("status") != "PASS":
+        record_transition(
+            run_dir,
+            state,
+            "BLOCKED_EXTERNAL",
+            "release DeerFlow deployment preflight failed",
+            [report_path.name],
+        )
+        return False
+    return True
+
+
 def release(args: argparse.Namespace) -> int:
+    repo_root = Path(__file__).resolve().parents[1]
     run_dir = args.run_dir.resolve()
     state = load_state(run_dir)
     if state.get("state") != "REVIEWED":
         raise ValueError(f"release requires REVIEWED, got {state.get('state')}")
 
-    required_reports = (
-        "deerflow_preflight_report.json",
-        "acquisition_gate_report.json",
-        "release_data_gate_report.json",
-        "reproducibility_report.json",
-        "review_report.json",
-    )
+    if not rerun_deerflow_preflight_for_release(repo_root, run_dir, state):
+        return 1
+
+    report_states = {
+        "deerflow_preflight_report.json": "BLOCKED_EXTERNAL",
+        "deerflow_release_preflight_report.json": "BLOCKED_EXTERNAL",
+        "acquisition_gate_report.json": "BLOCKED_DATA",
+        "release_data_gate_report.json": "BLOCKED_DATA",
+        "reproducibility_report.json": "BLOCKED_METHOD",
+        "review_report.json": "BLOCKED_METHOD",
+    }
+    required_reports = tuple(report_states)
     require_files(run_dir, required_reports)
-    for filename in required_reports:
+    for filename, blocked_state in report_states.items():
         report = read_json(run_dir / filename)
         if report.get("status") != "PASS":
             record_transition(
                 run_dir,
                 state,
-                "BLOCKED_METHOD",
+                blocked_state,
                 f"{filename} is not PASS",
                 [filename],
             )
@@ -432,7 +533,6 @@ def build_parser() -> argparse.ArgumentParser:
     preflight_parser.add_argument("--extensions-config", required=True, type=Path)
     preflight_parser.add_argument("--config", type=Path)
     preflight_parser.add_argument("--skip-live-agent-inventory", action="store_true")
-    preflight_parser.add_argument("--offline", action="store_true")
     preflight_parser.set_defaults(func=deerflow_preflight)
 
     gate_parser = subparsers.add_parser("gate")
