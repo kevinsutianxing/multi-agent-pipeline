@@ -1,0 +1,120 @@
+# Merge this fragment into the official bytedance/deer-flow config.yaml.
+# Pin a DeerFlow tag/commit before production use. Do not track main/latest.
+
+# Custom-agent CRUD is required only while syncing approved agent specs.
+# Keep the API behind trusted management access and disable it afterward if possible.
+agents_api:
+  enabled: true
+
+# Research-critical agents must not receive conversationally extracted facts.
+memory:
+  enabled: true
+  injection_enabled: false
+
+# Autonomous skill rewriting would create hidden methodology drift.
+skill_evolution:
+  enabled: false
+
+# fmdata and research deployments may expose several MCP tools; load schemas only on demand.
+tool_search:
+  enabled: true
+
+# Use container isolation. Never enable host bash in production financial research.
+# Replace image tags with a pinned digest in the real deployment manifest.
+sandbox:
+  use: deerflow.community.aio_sandbox:AioSandboxProvider
+  replicas: 3
+  idle_timeout: 900
+
+# Bound runaway long-horizon execution. Tune only from measured sample runs.
+token_budget:
+  enabled: true
+  max_tokens: 180000
+  warn_threshold: 0.8
+  hard_stop_threshold: 1.0
+
+subagents:
+  timeout_seconds: 1200
+  max_turns: 120
+  agents:
+    general-purpose:
+      timeout_seconds: 1200
+      max_turns: 120
+    bash:
+      timeout_seconds: 600
+      max_turns: 60
+
+# These names are exported by integrations/deerflow/fmdata_mcp_server.py.
+# Filing snapshots, revision listings, and web-evidence capture are deliberately
+# absent until a real implementation and validation contract exist.
+tool_groups:
+  - name: finance-source-read
+    tools:
+      - resolve_financial_entity
+      - fetch_market_data_snapshot
+      - fetch_fundamental_snapshot
+      - fetch_macro_snapshot
+      - fetch_industry_dataset_snapshot
+      - describe_dataset
+
+  - name: evidence-discovery
+    tools:
+      - web_search
+      - web_fetch
+
+  - name: validated-data-read
+    tools:
+      - read_file
+      - glob
+      - grep
+
+  - name: sandbox-analysis
+    tools:
+      - bash
+      - read_file
+      - write_file
+      - str_replace
+      - glob
+      - grep
+
+  - name: artifact-write
+    tools:
+      - write_file
+      - str_replace
+      - present_files
+
+# Tool groups restrict what each Custom Agent can see. This global allowlist is
+# a second boundary and blocks management tools such as update_agent/setup_agent
+# and ACP delegation from production research agents.
+#
+# A custom production provider should additionally inspect command arguments,
+# paths, network destinations, user/thread/run identity, and deny writes to raw
+# evidence, approved skills, and methodology directories.
+guardrails:
+  enabled: true
+  fail_closed: true
+  provider:
+    use: deerflow.guardrails.builtin:AllowlistProvider
+    config:
+      allowed_tools:
+        - task
+        - present_files
+        - view_image
+        - ask_clarification
+        - write_todos
+        - tool_search
+        - resolve_financial_entity
+        - fetch_market_data_snapshot
+        - fetch_fundamental_snapshot
+        - fetch_macro_snapshot
+        - fetch_industry_dataset_snapshot
+        - describe_dataset
+        - web_search
+        - web_fetch
+        - ls
+        - read_file
+        - glob
+        - grep
+        - write_file
+        - str_replace
+        - bash

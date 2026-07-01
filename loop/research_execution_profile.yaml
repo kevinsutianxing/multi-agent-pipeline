@@ -1,0 +1,325 @@
+version: 4
+name: codex-led-financial-research-execution
+extends: loop/research_loop.yaml
+
+architecture:
+  control_plane: codex
+  state_and_release_authority: external_runner
+  agent_execution_runtime: official_bytedance_deerflow_2x
+  financial_data_plane: custom_financial_data_service_via_mcp
+  independent_release_reviewer: external_claude_code_or_approved_reviewer
+
+state_progression:
+  - INTAKE
+  - PLANNED
+  - DEERFLOW_READY
+  - ACQUIRED
+  - DATA_VALIDATED
+  - ANALYZED
+  - REPRODUCED
+  - RELEASE_DATA_VALIDATED
+  - REVIEWED
+  - COMPLETED
+
+control_plane:
+  chief_planner: codex
+  state_owner: external_runner
+  controller: scripts/research_control.py
+  source_of_truth: runs/<run_id>/run_state.json
+  model_output_is_gate_result: false
+  deerflow_answer_is_financial_evidence: false
+
+components:
+  codex:
+    deployment: external
+    owns: [qualification, plan, task_dag, integration, retry_proposal, synthesis]
+    forbidden: [self_certify_data, waive_gate, self_approve_methodology_change]
+
+  external_runner:
+    deployment: external
+    owns: [state_transitions, deterministic_commands, retry_counts, release_decision]
+    forbidden: [rewrite_agent_output, waive_failed_gate]
+
+  official_deerflow_runtime:
+    implementation: bytedance/deer-flow_2x
+    role: sandboxed_agent_execution_harness
+    invocation: adapters/deerflow_gateway.py
+    owns: [custom_agent_execution, subagents, skills, mcp_tools, sandbox_artifacts, run_events]
+    forbidden: [act_as_financial_source, self_certify_research, final_release_decision]
+    required_controls:
+      - pinned_commit_or_tag
+      - pinned_sandbox_image
+      - container_kubernetes_or_e2b_sandbox
+      - host_bash_disabled
+      - memory_injection_disabled_for_research_agents
+      - skill_evolution_disabled
+      - tool_search_enabled
+      - explicit_tool_groups
+      - fail_closed_guardrails
+      - request_and_event_audit
+
+  custom_financial_data_service:
+    role: financial_data_plane
+    integration: mcp_or_equivalent_tool_adapter
+    contract: docs/FINANCE_DATA_MCP_CONTRACT.md
+    response_schema: schemas/finance-data-snapshot.schema.json
+    owns:
+      - provider_requests
+      - entity_resolution
+      - immutable_raw_snapshots
+      - normalized_snapshots
+      - source_metadata
+      - publication_and_availability_times
+      - dataset_lineage
+    output_files:
+      - runs/<run_id>/source_manifest.data.json
+      - runs/<run_id>/dataset_manifest.json
+      - runs/<run_id>/raw/...
+    forbidden:
+      - research_conclusion
+      - self_promote_validation_status
+      - silent_backfill
+      - silent_proxy_substitution
+      - expose_secrets
+
+  finance_evidence_agent:
+    runtime: official_deerflow_runtime
+    assistant_id: finance-evidence-agent
+    spec: integrations/deerflow/agents/finance-evidence-agent.json
+    owns: [bounded_mcp_requests, evidence_id_collection, data_gap_reporting]
+    forbidden: [certify_own_data, write_final_conclusion]
+
+  industry_research_agent:
+    runtime: official_deerflow_runtime
+    assistant_id: industry-research-agent
+    spec: integrations/deerflow/agents/industry-research-agent.json
+    owns: [primary_source_discovery, industry_evidence_map, contradiction_collection]
+    output_files:
+      - runs/<run_id>/source_manifest.research.json
+    forbidden: [invent_citation, promote_unverified_secondary_claim]
+
+  quant_analysis_agent:
+    runtime: official_deerflow_runtime
+    assistant_id: quant-analysis-agent
+    spec: integrations/deerflow/agents/quant-analysis-agent.json
+    owns: [validated_data_analysis, calculation_artifacts, diagnostics, claim_candidates]
+    forbidden: [live_unvalidated_data, modify_raw_snapshots, final_release_decision]
+
+  independent_reviewer:
+    deployment: external_from_primary_deerflow_run
+    preferred_runtime: claude_code
+    owns: [method_review, code_review, evidence_audit, report_consistency]
+    forbidden: [edit_gate_report, assume_implementer_correct]
+
+  hermes:
+    owns: [approved_memory_retrieval, candidate_lesson_capture]
+    forbidden: [auto_promote_skill, change_constitution]
+
+  openclaw:
+    owns: [schedule, webhook, heartbeat, terminal_state_notification]
+    forbidden: [research_verdict, gate_waiver, investment_conclusion]
+
+phases:
+  - id: INTAKE
+    owner: user_or_openclaw
+    command_template: >-
+      python scripts/research_control.py init
+      --run-dir runs/<run_id>
+      --run-id <run_id>
+      --topic <topic>
+      --research-type <research_type>
+      --as-of <as_of>
+    outputs: [research_brief.json, run_state.json]
+
+  - id: PLAN
+    owner: codex
+    outputs: [research_plan.json, task_envelopes]
+    schema: schemas/research-plan.schema.json
+    completion_command: >-
+      python scripts/research_control.py checkpoint
+      --run-dir runs/<run_id>
+      --phase PLANNED
+
+  - id: DEERFLOW_PREFLIGHT
+    owner: external_runner
+    command_template: >-
+      python scripts/research_control.py deerflow-preflight
+      --run-dir runs/<run_id>
+      --deployment-manifest <deployment_manifest>
+      --config <official_deerflow_config>
+      --extensions-config <official_deerflow_extensions_config>
+    output: runs/<run_id>/deerflow_preflight_report.json
+    success_state: DEERFLOW_READY
+    required:
+      - live_official_deerflow_health
+      - official_deerflow_version_pinned
+      - sandbox_image_pinned
+      - approved_custom_agents_present_or_explicit_inventory_skip_after_sync
+      - financial_data_mcp_present_and_placeholder_free
+      - configuration_hashes_match
+      - memory_injection_disabled
+      - skill_evolution_disabled
+      - host_bash_disabled
+      - guardrails_enabled_and_fail_closed
+    fail_state: BLOCKED_EXTERNAL
+
+  - id: ACQUIRE_DATA
+    owner: finance_evidence_agent
+    allowed_after: [DEERFLOW_PREFLIGHT]
+    invocation_template: >-
+      python adapters/deerflow_gateway.py run
+      --run-dir runs/<run_id>
+      --task-id <task_id>
+      --agent finance-evidence-agent
+      --mode standard
+      --message-file runs/<run_id>/tasks/<task_id>/prompt.txt
+    data_provider: custom_financial_data_service
+    outputs:
+      - source_manifest.data.json
+      - dataset_manifest.json
+      - raw_snapshots
+      - deerflow/<task_id>/request.json
+      - deerflow/<task_id>/events.jsonl
+      - deerflow/<task_id>/result.json
+
+  - id: ACQUIRE_RESEARCH_EVIDENCE
+    owner: industry_research_agent
+    allowed_after: [DEERFLOW_PREFLIGHT]
+    invocation_template: >-
+      python adapters/deerflow_gateway.py run
+      --run-dir runs/<run_id>
+      --task-id <task_id>
+      --agent industry-research-agent
+      --mode ultra
+      --max-subagents 3
+      --message-file runs/<run_id>/tasks/<task_id>/prompt.txt
+    may_run_parallel_with: [ACQUIRE_DATA]
+    outputs:
+      - source_manifest.research.json
+      - evidence_maps
+      - contradiction_register
+      - deerflow/<task_id>/request.json
+      - deerflow/<task_id>/events.jsonl
+      - deerflow/<task_id>/result.json
+
+  - id: ACQUISITION_CHECKPOINT
+    owner: external_runner
+    command: >-
+      python scripts/research_control.py checkpoint
+      --run-dir runs/<run_id>
+      --phase ACQUIRED
+    required:
+      - source_manifest.data.json
+      - source_manifest.research.json
+      - dataset_manifest.json
+
+  - id: DATA_GATE
+    owner: external_runner
+    command: >-
+      python scripts/research_control.py gate
+      --run-dir runs/<run_id>
+      --stage acquisition
+    outputs:
+      - source_manifest.json
+      - acquisition_gate_report.json
+    success_state: DATA_VALIDATED
+    fail_state: BLOCKED_DATA
+
+  - id: ANALYZE
+    owner: quant_analysis_agent_or_codex_specialist
+    allowed_after: [DATA_GATE]
+    invocation_template: >-
+      python adapters/deerflow_gateway.py run
+      --run-dir runs/<run_id>
+      --task-id <task_id>
+      --agent quant-analysis-agent
+      --mode pro
+      --message-file runs/<run_id>/tasks/<task_id>/prompt.txt
+    outputs: [calculation_manifest.json, claim_ledger.jsonl, analysis_artifacts]
+    completion_command: >-
+      python scripts/research_control.py checkpoint
+      --run-dir runs/<run_id>
+      --phase ANALYZED
+
+  - id: REPRODUCE
+    owner: clean_process_runner
+    outputs: [reproducibility_report.json]
+    completion_command: >-
+      python scripts/research_control.py checkpoint
+      --run-dir runs/<run_id>
+      --phase REPRODUCED
+
+  - id: RELEASE_DATA_GATE
+    owner: external_runner
+    command: >-
+      python scripts/research_control.py gate
+      --run-dir runs/<run_id>
+      --stage release
+    output: release_data_gate_report.json
+    pass_condition:
+      - release_data_gate_report.status == PASS
+      - release_data_gate_report.summary.material_coverage == 1.0
+    success_state: RELEASE_DATA_VALIDATED
+    fail_state: BLOCKED_DATA
+
+  - id: ADVERSARIAL_REVIEW
+    owner: independent_reviewer
+    independence_required: true
+    outside_primary_deerflow_run: true
+    outputs: [review_report.json]
+    completion_command: >-
+      python scripts/research_control.py review
+      --run-dir runs/<run_id>
+    pass_condition:
+      - review_report.status == PASS
+      - review_report.critical_count == 0
+
+  - id: SYNTHESIZE
+    owner: codex
+    allowed_inputs:
+      - verified claim ledger records
+      - validated calculation records
+      - independent review findings
+    outputs: [candidate_report, release_requirements.json]
+
+  - id: RELEASE
+    owner: external_runner
+    command_template: >-
+      python scripts/research_control.py release
+      --run-dir runs/<run_id>
+      --candidate <candidate_report>
+    reruns:
+      - live_official_deerflow_preflight
+    required:
+      - initial_deerflow_preflight_pass
+      - release_deerflow_preflight_pass
+      - acquisition_data_gate_pass
+      - release_data_gate_pass
+      - reproducibility_pass
+      - independent_review_pass
+      - zero_unresolved_critical_findings
+    human_approval_if:
+      - methodology_changed
+      - investment_recommendation
+      - material_source_conflict
+      - proxy_substitution_affects_conclusion
+
+  - id: ARCHIVE
+    owner: codex
+    outputs: [final_run_state.json, evidence_bundle]
+
+retry_policy:
+  max_attempts_per_failed_gate: 3
+  require_recorded_root_cause: true
+  require_changed_artifact_list: true
+  gate_or_threshold_weakening_allowed: false
+  external_source_unavailable_state: BLOCKED_EXTERNAL
+
+terminal_states:
+  - COMPLETED
+  - BLOCKED_DATA
+  - BLOCKED_METHOD
+  - BLOCKED_EXTERNAL
+  - NEEDS_HUMAN
+  - MAX_RETRIES_EXCEEDED
+  - SECURITY_BLOCKED

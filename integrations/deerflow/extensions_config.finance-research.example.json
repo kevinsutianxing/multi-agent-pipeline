@@ -1,0 +1,28 @@
+{
+  "mcpServers": {
+    "fmdata-research": {
+      "command": "python",
+      "args": [
+        "-m",
+        "integrations.deerflow.fmdata_mcp_server"
+      ],
+      "enabled": true,
+      "env": {
+        "FMDATA_URL": "$FMDATA_URL",
+        "FMDATA_RESEARCH_KEY": "$FMDATA_RESEARCH_KEY",
+        "PYTHONPATH": "$MULTI_AGENT_PIPELINE_ROOT"
+      }
+    }
+  },
+  "skills": {
+    "deep-research": {
+      "enabled": true
+    },
+    "data-analysis": {
+      "enabled": true
+    },
+    "chart-visualization": {
+      "enabled": true
+    }
+  }
+}

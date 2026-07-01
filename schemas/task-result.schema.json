@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agent Task Result",
+  "type": "object",
+  "required": ["task_id", "status", "artifacts", "summary"],
+  "properties": {
+    "task_id": {"type": "string", "minLength": 1},
+    "status": {
+      "type": "string",
+      "enum": [
+        "COMPLETED",
+        "FAILED",
+        "BLOCKED_DATA",
+        "BLOCKED_METHOD",
+        "BLOCKED_EXTERNAL",
+        "NEEDS_HUMAN"
+      ]
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true
+    },
+    "gate_command": {"type": ["string", "null"]},
+    "summary": {"type": "string"},
+    "next_action": {"type": ["string", "null"]}
+  }
+}

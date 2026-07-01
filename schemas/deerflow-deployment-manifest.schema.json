@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/schemas/deerflow-deployment-manifest.schema.json",
+  "title": "Official DeerFlow Financial Research Deployment Manifest",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "official_repository",
+    "official_ref",
+    "config_version",
+    "sandbox_mode",
+    "allow_host_bash",
+    "memory_injection_enabled",
+    "skill_evolution_enabled",
+    "tool_search_enabled",
+    "guardrails_enabled",
+    "guardrails_fail_closed",
+    "expected_agents",
+    "expected_mcp_servers"
+  ],
+  "properties": {
+    "official_repository": {
+      "const": "bytedance/deer-flow"
+    },
+    "official_ref": {
+      "type": "string",
+      "minLength": 7,
+      "not": {
+        "enum": ["main", "master", "latest", "HEAD"]
+      }
+    },
+    "config_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "sandbox_mode": {
+      "type": "string",
+      "enum": ["container", "kubernetes", "e2b"]
+    },
+    "sandbox_image_digest": {
+      "type": ["string", "null"],
+      "pattern": "^sha256:[a-fA-F0-9]{64}$"
+    },
+    "allow_host_bash": {
+      "const": false
+    },
+    "memory_injection_enabled": {
+      "const": false
+    },
+    "skill_evolution_enabled": {
+      "const": false
+    },
+    "tool_search_enabled": {
+      "const": true
+    },
+    "guardrails_enabled": {
+      "const": true
+    },
+    "guardrails_fail_closed": {
+      "const": true
+    },
+    "expected_agents": {
+      "type": "array",
+      "uniqueItems": true,
+      "minItems": 3,
+      "items": {"type": "string"}
+    },
+    "expected_mcp_servers": {
+      "type": "array",
+      "uniqueItems": true,
+      "minItems": 1,
+      "items": {"type": "string"}
+    },
+    "config_sha256": {
+      "type": ["string", "null"],
+      "pattern": "^[a-fA-F0-9]{64}$"
+    },
+    "extensions_config_sha256": {
+      "type": ["string", "null"],
+      "pattern": "^[a-fA-F0-9]{64}$"
+    },
+    "custom_agents_synced_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "management_api_exposure": {
+      "type": "string",
+      "enum": ["trusted-management-network", "disabled-after-sync"]
+    }
+  }
+}
