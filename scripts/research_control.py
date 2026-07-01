@@ -31,7 +31,7 @@ CHECKPOINT_REQUIREMENTS = {
 
 ALLOWED_PREVIOUS = {
     "PLANNED": {"INTAKE"},
-    "ACQUIRED": {"PLANNED", "BLOCKED_EXTERNAL"},
+    "ACQUIRED": {"DEERFLOW_READY"},
     "ANALYZED": {"DATA_VALIDATED"},
     "REPRODUCED": {"ANALYZED"},
 }
@@ -166,6 +166,58 @@ def checkpoint(args: argparse.Namespace) -> int:
     return 0
 
 
+def deerflow_preflight(args: argparse.Namespace) -> int:
+    repo_root = Path(__file__).resolve().parents[1]
+    run_dir = args.run_dir.resolve()
+    state = load_state(run_dir)
+    current = state.get("state")
+    if current not in {"PLANNED", "BLOCKED_EXTERNAL"}:
+        raise ValueError(
+            "DeerFlow preflight requires PLANNED or BLOCKED_EXTERNAL, "
+            f"got {current}"
+        )
+
+    report_path = run_dir / "deerflow_preflight_report.json"
+    command = [
+        sys.executable,
+        str(repo_root / "scripts" / "deerflow_preflight.py"),
+        "--deployment-manifest",
+        str(args.deployment_manifest.resolve()),
+        "--extensions-config",
+        str(args.extensions_config.resolve()),
+        "--report",
+        str(report_path),
+    ]
+    if args.config is not None:
+        command.extend(["--config", str(args.config.resolve())])
+    if args.skip_live_agent_inventory:
+        command.append("--skip-live-agent-inventory")
+    if args.offline:
+        command.append("--offline")
+
+    rc = run_command(command, repo_root)
+    report = read_json(report_path)
+    if rc != 0 or report.get("status") != "PASS":
+        record_transition(
+            run_dir,
+            state,
+            "BLOCKED_EXTERNAL",
+            "official DeerFlow deployment preflight failed",
+            [report_path.name],
+        )
+        return 1
+
+    state = record_transition(
+        run_dir,
+        state,
+        "DEERFLOW_READY",
+        "official DeerFlow deployment preflight passed",
+        [report_path.name],
+    )
+    print(json.dumps(state, ensure_ascii=False, indent=2))
+    return 0
+
+
 def gate(args: argparse.Namespace) -> int:
     repo_root = Path(__file__).resolve().parents[1]
     run_dir = args.run_dir.resolve()
@@ -285,6 +337,7 @@ def release(args: argparse.Namespace) -> int:
         raise ValueError(f"release requires REVIEWED, got {state.get('state')}")
 
     required_reports = (
+        "deerflow_preflight_report.json",
         "acquisition_gate_report.json",
         "release_data_gate_report.json",
         "reproducibility_report.json",
@@ -372,6 +425,15 @@ def build_parser() -> argparse.ArgumentParser:
         choices=tuple(CHECKPOINT_REQUIREMENTS),
     )
     checkpoint_parser.set_defaults(func=checkpoint)
+
+    preflight_parser = subparsers.add_parser("deerflow-preflight")
+    preflight_parser.add_argument("--run-dir", required=True, type=Path)
+    preflight_parser.add_argument("--deployment-manifest", required=True, type=Path)
+    preflight_parser.add_argument("--extensions-config", required=True, type=Path)
+    preflight_parser.add_argument("--config", type=Path)
+    preflight_parser.add_argument("--skip-live-agent-inventory", action="store_true")
+    preflight_parser.add_argument("--offline", action="store_true")
+    preflight_parser.set_defaults(func=deerflow_preflight)
 
     gate_parser = subparsers.add_parser("gate")
     gate_parser.add_argument("--run-dir", required=True, type=Path)
