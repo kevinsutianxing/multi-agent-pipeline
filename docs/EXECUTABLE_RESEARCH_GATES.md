@@ -54,7 +54,8 @@ python scripts/merge_manifests.py --run-dir runs/<run_id>
 python scripts/validate_evidence.py \
   --run-dir runs/<run_id> \
   --as-of YYYY-MM-DD \
-  --stage acquisition
+  --stage acquisition \
+  --report runs/<run_id>/acquisition_gate_report.json
 ```
 
 It validates sources and datasets without requiring calculations or claims that do not exist yet.
@@ -67,10 +68,11 @@ Runs after analysis and reproduction:
 python scripts/validate_evidence.py \
   --run-dir runs/<run_id> \
   --as-of YYYY-MM-DD \
-  --stage release
+  --stage release \
+  --report runs/<run_id>/release_data_gate_report.json
 ```
 
-It additionally validates calculation lineage, claim references, contradictions, and 100% support coverage for material claims.
+It additionally validates calculation lineage, claim references, contradictions, and 100% support coverage for material claims. The acquisition and release reports are deliberately preserved as separate artifacts.
 
 ## Evidence graph
 
