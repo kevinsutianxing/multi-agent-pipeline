@@ -1,0 +1,25 @@
+{
+  "official_repository": "bytedance/deer-flow",
+  "official_ref": "REPLACE_WITH_PINNED_TAG_OR_COMMIT",
+  "config_version": 15,
+  "sandbox_mode": "container",
+  "sandbox_image_digest": null,
+  "allow_host_bash": false,
+  "memory_injection_enabled": false,
+  "skill_evolution_enabled": false,
+  "tool_search_enabled": true,
+  "guardrails_enabled": true,
+  "guardrails_fail_closed": true,
+  "expected_agents": [
+    "finance-evidence-agent",
+    "industry-research-agent",
+    "quant-analysis-agent"
+  ],
+  "expected_mcp_servers": [
+    "financial-data"
+  ],
+  "config_sha256": null,
+  "extensions_config_sha256": null,
+  "custom_agents_synced_at": null,
+  "management_api_exposure": "trusted-management-network"
+}
