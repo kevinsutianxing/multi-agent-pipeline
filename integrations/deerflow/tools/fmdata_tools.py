@@ -86,11 +86,11 @@ def _snapshot_request(
         "entity_ids": entity_ids or [],
         "start_date": start_date,
         "end_date": end_date,
-        "parameters": parameters or {},
-        "expected_semantics": {
-            **(expected_semantics or {}),
+        "parameters": {
+            **(parameters or {}),
             "research_dataset_type": dataset_type,
         },
+        "expected_semantics": expected_semantics or {},
     }
     result = _request("POST", "/research/snapshots", payload)
     # The service must remain non-authoritative. Refuse any response claiming
