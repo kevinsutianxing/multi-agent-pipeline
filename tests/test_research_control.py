@@ -4,6 +4,7 @@ import argparse
 import datetime as dt
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -42,12 +43,81 @@ def test_checkpoint_requires_declared_artifacts(tmp_path: Path) -> None:
         research_control.checkpoint(args)
 
 
+def test_acquired_checkpoint_cannot_bypass_deerflow_preflight(tmp_path: Path) -> None:
+    research_control.write_json(
+        tmp_path / "run_state.json",
+        {"state": "PLANNED", "history": []},
+    )
+    for filename in (
+        "source_manifest.data.json",
+        "source_manifest.research.json",
+        "dataset_manifest.json",
+    ):
+        research_control.write_json(tmp_path / filename, {})
+    args = argparse.Namespace(run_dir=tmp_path, phase="ACQUIRED")
+    with pytest.raises(ValueError, match="DEERFLOW_READY"):
+        research_control.checkpoint(args)
+
+
+def test_deerflow_preflight_pass_advances_state(tmp_path: Path) -> None:
+    research_control.write_json(
+        tmp_path / "run_state.json",
+        {"state": "PLANNED", "history": []},
+    )
+    deployment = tmp_path / "deployment.json"
+    extensions = tmp_path / "extensions.json"
+    deployment.write_text("{}", encoding="utf-8")
+    extensions.write_text("{}", encoding="utf-8")
+    research_control.write_json(
+        tmp_path / "deerflow_preflight_report.json",
+        {"status": "PASS"},
+    )
+    args = argparse.Namespace(
+        run_dir=tmp_path,
+        deployment_manifest=deployment,
+        extensions_config=extensions,
+        config=None,
+        skip_live_agent_inventory=False,
+        offline=True,
+    )
+    with patch("scripts.research_control.run_command", return_value=0):
+        assert research_control.deerflow_preflight(args) == 0
+    assert read_state(tmp_path)["state"] == "DEERFLOW_READY"
+
+
+def test_deerflow_preflight_failure_blocks_external(tmp_path: Path) -> None:
+    research_control.write_json(
+        tmp_path / "run_state.json",
+        {"state": "PLANNED", "history": []},
+    )
+    deployment = tmp_path / "deployment.json"
+    extensions = tmp_path / "extensions.json"
+    deployment.write_text("{}", encoding="utf-8")
+    extensions.write_text("{}", encoding="utf-8")
+    research_control.write_json(
+        tmp_path / "deerflow_preflight_report.json",
+        {"status": "FAIL"},
+    )
+    args = argparse.Namespace(
+        run_dir=tmp_path,
+        deployment_manifest=deployment,
+        extensions_config=extensions,
+        config=None,
+        skip_live_agent_inventory=False,
+        offline=True,
+    )
+    with patch("scripts.research_control.run_command", return_value=1):
+        assert research_control.deerflow_preflight(args) == 1
+    assert read_state(tmp_path)["state"] == "BLOCKED_EXTERNAL"
+
+
 def test_sensitive_release_without_human_approval_stops(tmp_path: Path) -> None:
     research_control.write_json(
         tmp_path / "run_state.json",
         {"state": "REVIEWED", "history": []},
     )
     for filename in (
+        "deerflow_preflight_report.json",
         "acquisition_gate_report.json",
         "release_data_gate_report.json",
         "reproducibility_report.json",
