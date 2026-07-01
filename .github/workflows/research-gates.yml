@@ -35,8 +35,12 @@ jobs:
           python-version: "3.11"
       - name: Install test dependency
         run: python -m pip install --disable-pip-version-check pytest
-      - name: Compile deterministic gates
-        run: python -m py_compile scripts/merge_manifests.py scripts/validate_evidence.py
+      - name: Compile deterministic gates and controller
+        run: >-
+          python -m py_compile
+          scripts/merge_manifests.py
+          scripts/validate_evidence.py
+          scripts/research_control.py
       - name: Validate JSON schemas
         run: |
           python - <<'PY'
@@ -46,5 +50,5 @@ jobs:
               json.loads(path.read_text(encoding='utf-8'))
               print(f'validated {path}')
           PY
-      - name: Run research gate tests
-        run: python -m pytest -q tests/test_research_gates.py
+      - name: Run research system tests
+        run: python -m pytest -q tests/test_research_gates.py tests/test_research_control.py
