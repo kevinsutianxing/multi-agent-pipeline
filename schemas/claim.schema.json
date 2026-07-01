@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kevinsutianxing/multi-agent-pipeline/schemas/claim.schema.json",
+  "title": "ResearchClaimLedger",
+  "type": "object",
+  "required": ["run_id", "as_of_date", "claims"],
+  "properties": {
+    "run_id": { "type": "string" },
+    "as_of_date": { "type": "string", "format": "date" },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["claim_id", "claim_type", "text", "confidence", "review_status"],
+        "properties": {
+          "claim_id": { "type": "string" },
+          "claim_type": {
+            "type": "string",
+            "enum": ["fact", "estimate", "model_output", "interpretation", "recommendation"]
+          },
+          "text": { "type": "string" },
+          "supporting_data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["dataset_id", "validation_status"],
+              "properties": {
+                "dataset_id": { "type": "string" },
+                "field": { "type": "string" },
+                "observation_date": { "type": "string" },
+                "validation_status": {
+                  "type": "string",
+                  "enum": ["pending", "passed", "failed", "waived"]
+                }
+              }
+            }
+          },
+          "supporting_sources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["source_name"],
+              "properties": {
+                "source_name": { "type": "string" },
+                "retrieved_at": { "type": "string" },
+                "url_or_reference": { "type": "string" }
+              }
+            }
+          },
+          "confidence": {
+            "type": "string",
+            "enum": ["high", "medium", "low"]
+          },
+          "limitations": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "review_status": {
+            "type": "string",
+            "enum": ["pending", "passed", "failed"]
+          }
+        }
+      }
+    }
+  }
+}
