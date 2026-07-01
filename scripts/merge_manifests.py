@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Merge segmented source and dataset manifests without using an LLM.
 
-Parallel acquisition workers write ``source_manifest.<name>.json`` and
-``dataset_manifest.<name>.json``. This command combines both families in stable
-order and rejects conflicting duplicate identifiers before the data gate runs.
+Parallel acquisition workers write ``source_manifest.<name>.json`` and may
+write ``dataset_manifest.<name>.json``. This command combines each available
+family in stable order and rejects conflicting duplicate identifiers. The
+subsequent evidence gate remains responsible for requiring a dataset manifest.
 """
 
 from __future__ import annotations
@@ -59,6 +60,9 @@ def merge(run_dir: Path) -> dict[str, Any]:
 
     result: dict[str, Any] = {
         "status": "MERGED",
+        "output": str(target),
+        "segments": len(segments),
+        "records": len(records),
         "source_output": str(target),
         "source_segments": len(segments),
         "source_records": len(records),
@@ -74,14 +78,14 @@ def merge(run_dir: Path) -> dict[str, Any]:
         result["dataset_output"] = dataset_result["output"]
         result["dataset_segments"] = dataset_result["segments"]
         result["dataset_records"] = dataset_result["records"]
-    elif not (run_dir / "dataset_manifest.json").is_file():
-        raise FileNotFoundError(
-            "no dataset_manifest.<name>.json segments or existing dataset_manifest.json found"
-        )
-    else:
+    elif (run_dir / "dataset_manifest.json").is_file():
         result["dataset_output"] = str(run_dir / "dataset_manifest.json")
         result["dataset_segments"] = 0
         result["dataset_records"] = None
+    else:
+        result["dataset_output"] = None
+        result["dataset_segments"] = 0
+        result["dataset_records"] = 0
 
     return result
 
