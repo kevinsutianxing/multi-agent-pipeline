@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/schemas/evidence-record.schema.json",
+  "title": "Financial Research Evidence Record",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "evidence_id",
+    "source_id",
+    "provider",
+    "locator",
+    "retrieved_at",
+    "as_of",
+    "content_sha256",
+    "snapshot_path"
+  ],
+  "properties": {
+    "evidence_id": {"type": "string", "minLength": 1},
+    "source_id": {"type": "string", "minLength": 1},
+    "provider": {"type": "string", "minLength": 1},
+    "locator": {"type": "string", "minLength": 1},
+    "request_parameters": {"type": "object"},
+    "retrieved_at": {"type": "string", "format": "date-time"},
+    "as_of": {"type": "string", "format": "date"},
+    "published_at": {"type": ["string", "null"], "format": "date-time"},
+    "available_at": {"type": ["string", "null"], "format": "date-time"},
+    "snapshot_path": {"type": "string", "minLength": 1},
+    "content_sha256": {"type": "string", "pattern": "^[a-fA-F0-9]{64}$"},
+    "source_tier": {
+      "type": "string",
+      "enum": [
+        "PRIMARY_OFFICIAL",
+        "PRIMARY_ISSUER",
+        "PRIMARY_MARKET",
+        "LICENSED_VENDOR",
+        "SECONDARY_REPUTABLE",
+        "OTHER"
+      ]
+    },
+    "verification_status": {
+      "type": "string",
+      "enum": ["VERIFIED", "PARTIAL", "CONFLICTED", "NOT_VERIFIED"]
+    }
+  }
+}
