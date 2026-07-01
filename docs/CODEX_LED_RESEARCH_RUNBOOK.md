@@ -1,8 +1,6 @@
 # Codex-Led Financial Research Runbook
 
-This runbook turns the repository governance documents into an operational workflow.
-
-The architecture separates four authorities:
+This runbook operates four separate authorities:
 
 ```text
 Codex external planner and integrator
@@ -15,52 +13,47 @@ Official DeerFlow runs agents; it is not the financial database. The custom fina
 
 ## 0. Prepare and pin official DeerFlow
 
-Use a pinned official DeerFlow 2.x tag or commit. Do not run a reproducible financial process against moving `main` or an unpinned `latest` sandbox image.
+Use a reviewed official DeerFlow 2.x tag or commit. Do not run reproducible financial research against moving `main`, `master`, `HEAD`, or an unpinned `latest` sandbox image.
 
-Merge the reviewed profile fragment into official DeerFlow's `config.yaml`:
+Use these templates:
 
 ```text
 integrations/deerflow/config.finance-research.example.yaml
+integrations/deerflow/extensions_config.finance-research.example.json
+integrations/deerflow/deployment-manifest.example.json
 ```
 
-Key production settings:
+The real deployment must:
 
-- container or Kubernetes sandbox;
-- host bash disabled;
-- memory injection disabled for research agents;
-- Skill Evolution disabled;
-- Tool Search enabled for large MCP tool sets;
-- token/subagent budgets;
-- fail-closed guardrails;
-- Custom Agent management API exposed only on a trusted management path.
+- use container, Kubernetes, or E2B isolation;
+- keep host bash disabled;
+- disable memory injection for research agents;
+- disable Skill Evolution;
+- enable Tool Search for large MCP sets;
+- use explicit Tool Groups and fail-closed Guardrails;
+- pin the DeerFlow ref and sandbox image;
+- replace the placeholder financial-data MCP module;
+- record hashes for the deployed config and extensions config.
 
-Register the financial-data MCP adapter using:
+The custom financial-data MCP server must implement:
 
 ```text
-integrations/deerflow/extensions_config.finance-research.example.json
+docs/FINANCE_DATA_MCP_CONTRACT.md
+schemas/finance-data-snapshot.schema.json
 ```
 
-The module name in that file is intentionally a placeholder. Replace it only with the real custom financial-data MCP server after its transport and tool schemas are known. The service must implement `docs/FINANCE_DATA_MCP_CONTRACT.md`.
-
-Set the official DeerFlow Gateway URLs:
+Set official DeerFlow Gateway URLs:
 
 ```bash
 export DEERFLOW_URL=http://localhost:2026
-# Optional explicit overrides:
+# Optional overrides:
 # export DEERFLOW_GATEWAY_URL=http://localhost:2026
 # export DEERFLOW_LANGGRAPH_URL=http://localhost:2026/api/langgraph
 ```
 
-Verify official DeerFlow:
+## 1. Synchronize approved Custom Agents
 
-```bash
-python adapters/deerflow_gateway.py health
-python adapters/deerflow_gateway.py agents
-```
-
-## 1. Synchronize approved DeerFlow Custom Agents
-
-While official DeerFlow's trusted management API is enabled, create or update the approved agent specs:
+While the trusted Custom Agent management API is enabled:
 
 ```bash
 for spec in integrations/deerflow/agents/*.json; do
@@ -70,15 +63,11 @@ done
 
 Approved roles:
 
-- `finance-evidence-agent`: financial-data MCP requests and ID collection only;
+- `finance-evidence-agent`: bounded financial-data MCP requests; no conclusions or self-validation;
 - `industry-research-agent`: primary-source discovery, evidence maps, and contradictions;
 - `quant-analysis-agent`: reproducible calculations on acquisition-gate-approved data only.
 
-After synchronization, inspect the agent inventory and restrict or disable management access as appropriate:
-
-```bash
-python adapters/deerflow_gateway.py agents
-```
+Record the synchronization timestamp in the real deployment manifest. Restrict or disable management access afterward.
 
 ## 2. Start a research run
 
@@ -98,7 +87,7 @@ The controller creates `research_brief.json` and `run_state.json` in state `INTA
 
 ## 3. Ask Codex to plan
 
-Start external Codex with `prompts/CODEX_CHIEF_RESEARCH_PLANNER.md`. It must read the repository governance and DeerFlow assessment files and create:
+Start external Codex with `prompts/CODEX_CHIEF_RESEARCH_PLANNER.md`. It creates:
 
 ```text
 runs/<run_id>/research_plan.json
@@ -106,16 +95,9 @@ runs/<run_id>/tasks/<task_id>/task.json
 runs/<run_id>/tasks/<task_id>/prompt.txt
 ```
 
-The plan must conform to `schemas/research-plan.schema.json`. It must preregister hypotheses, disconfirming evidence, data requirements, task dependencies, selected Custom Agent, artifact contracts, acceptance commands, retry limits, and human-approval items.
+The plan must preregister hypotheses, disconfirming evidence, point-in-time requirements, selected Custom Agents, data/MCP requests, artifacts, acceptance commands, retry limits, and human-approval items.
 
-The plan must also distinguish:
-
-- official DeerFlow execution tasks;
-- custom financial-data MCP requests;
-- deterministic gate commands;
-- external independent review.
-
-After reviewing the plan artifact:
+Then:
 
 ```bash
 python scripts/research_control.py checkpoint \
@@ -123,9 +105,31 @@ python scripts/research_control.py checkpoint \
   --phase PLANNED
 ```
 
-## 4. Acquire financial data
+## 4. Run controlled DeerFlow preflight
 
-Dispatch the bounded task to the official DeerFlow financial evidence Custom Agent:
+Copy and complete the deployment templates outside the repository examples. The repository examples intentionally fail preflight until placeholders, hashes, pinned versions, and synchronization timestamps are replaced.
+
+```bash
+python scripts/research_control.py deerflow-preflight \
+  --run-dir "$RUN_DIR" \
+  --deployment-manifest /path/to/deployment-manifest.json \
+  --config /path/to/deer-flow/config.yaml \
+  --extensions-config /path/to/deer-flow/extensions_config.json
+```
+
+When the Custom Agent management API has been disabled after synchronization, add:
+
+```bash
+--skip-live-agent-inventory
+```
+
+This skips only the live `/api/agents` check. It does not skip official DeerFlow health, version pinning, hashes, MCP configuration, placeholder detection, Sandbox controls, Memory policy, Skill Evolution policy, or Guardrails policy.
+
+A pass moves the run to `DEERFLOW_READY`. A failure moves it to `BLOCKED_EXTERNAL`. The run cannot enter `ACQUIRED` directly from `PLANNED`.
+
+## 5. Acquire financial data
+
+Dispatch a bounded task through the official DeerFlow runtime:
 
 ```bash
 python adapters/deerflow_gateway.py run \
@@ -136,7 +140,7 @@ python adapters/deerflow_gateway.py run \
   --message-file "$RUN_DIR/tasks/collect-financial-data/prompt.txt"
 ```
 
-The agent may call only approved financial-data MCP tools. The custom financial-data service must preserve provider responses and create:
+The Custom Agent may call only approved financial-data MCP tools. The custom financial-data service—not the model—must preserve provider responses and create:
 
 ```text
 runs/<run_id>/raw/...
@@ -144,9 +148,9 @@ runs/<run_id>/source_manifest.data.json
 runs/<run_id>/dataset_manifest.json
 ```
 
-Every snapshot result must conform to `schemas/finance-data-snapshot.schema.json` and initially use `validation_status: PENDING`.
+Every snapshot result starts with `validation_status: PENDING`.
 
-The official DeerFlow adapter separately creates:
+The official DeerFlow adapter separately preserves operational audit records:
 
 ```text
 runs/<run_id>/deerflow/collect-financial-data/request.json
@@ -154,11 +158,9 @@ runs/<run_id>/deerflow/collect-financial-data/events.jsonl
 runs/<run_id>/deerflow/collect-financial-data/result.json
 ```
 
-These files prove what was asked and executed. They do not prove that the financial values are correct.
+These records prove what was requested and executed. They do not prove that financial values are correct.
 
-## 5. Acquire industry and company evidence
-
-Dispatch a separate task:
+## 6. Acquire industry and company evidence
 
 ```bash
 python adapters/deerflow_gateway.py run \
@@ -170,7 +172,7 @@ python adapters/deerflow_gateway.py run \
   --message-file "$RUN_DIR/tasks/collect-industry-evidence/prompt.txt"
 ```
 
-The industry agent may use generic web search and fetch for discovery. Search snippets and model summaries are not accepted evidence. Material sources must be preserved through an approved capture tool and recorded in:
+Generic web search/fetch is discovery only. Search snippets and model summaries are not accepted evidence. Material sources must be captured through an approved snapshot tool and recorded in:
 
 ```text
 runs/<run_id>/source_manifest.research.json
@@ -178,7 +180,7 @@ runs/<run_id>/evidence_maps/...
 runs/<run_id>/contradiction_register.json
 ```
 
-Financial-data and industry-evidence tasks may run in parallel, but they must write different manifest segments.
+Financial-data and industry-evidence tasks may run in parallel, but they write different manifest segments.
 
 After all declared acquisition artifacts exist:
 
@@ -188,7 +190,7 @@ python scripts/research_control.py checkpoint \
   --phase ACQUIRED
 ```
 
-## 6. Run the acquisition gate
+## 7. Run the acquisition gate
 
 ```bash
 python scripts/research_control.py gate \
@@ -196,15 +198,15 @@ python scripts/research_control.py gate \
   --stage acquisition
 ```
 
-The controller runs the manifest merger and deterministic evidence validator. It checks snapshots, hashes, dates, missingness, duplicates, point-in-time availability, proxies, and metadata.
+The controller merges manifests and validates snapshots, hashes, dates, missingness, duplicates, point-in-time availability, proxies, and metadata.
 
-A successful provider response, official DeerFlow result, MCP result, or agent `overall_pass=true` is not sufficient.
+A provider success flag, DeerFlow result, MCP result, or agent `overall_pass=true` is not sufficient.
 
-A passing run moves to `DATA_VALIDATED`. A critical failure moves to `BLOCKED_DATA` and preserves `acquisition_gate_report.json`.
+A pass moves the run to `DATA_VALIDATED`. A critical failure moves it to `BLOCKED_DATA` and preserves `acquisition_gate_report.json`.
 
-## 7. Execute quantitative and/or industry analysis
+## 8. Execute quantitative and/or industry analysis
 
-Codex assigns bounded analysis tasks only after `DATA_VALIDATED`.
+Codex assigns analysis only after `DATA_VALIDATED`.
 
 ### Quantitative execution through official DeerFlow
 
@@ -217,35 +219,9 @@ python adapters/deerflow_gateway.py run \
   --message-file "$RUN_DIR/tasks/quant-analysis/prompt.txt"
 ```
 
-The quantitative agent must not have live web search or unvalidated financial-data tools.
+The quantitative agent must not have live web search or unvalidated data tools. Require point-in-time universe construction, corporate-action treatment, survivorship/revision/feature/label leakage controls, train-validation-test or walk-forward evaluation, costs, slippage, liquidity, capacity, multiple-testing controls, sensitivity, ablation, subperiod stability, and reproducible seeds.
 
-Require at least:
-
-- economic mechanism and preregistered hypothesis;
-- point-in-time universe and identifier mapping;
-- corporate actions and adjustment convention;
-- survivorship, revision, feature, and label leakage controls;
-- train/validation/test or walk-forward evaluation;
-- benchmark and risk-model rationale;
-- transaction costs, slippage, liquidity, turnover, and capacity;
-- multiple-testing controls;
-- subperiod, sensitivity, and ablation analysis;
-- statistical and economic significance;
-- reproducible seeds and environment.
-
-### Industry/company analysis
-
-Require at least:
-
-- value-chain taxonomy and entity map;
-- primary-source hierarchy;
-- publication and availability dates;
-- KPI, unit, currency, and accounting comparability;
-- demand, supply, price, inventory, capacity, utilization, market share, margins, and cash-flow mapping where relevant;
-- historical base rates and cycle comparisons;
-- alternative causal explanations;
-- bull/base/bear assumptions and disconfirming indicators;
-- explicit contradictory evidence.
+Industry/company analysis must preserve source hierarchy, value-chain taxonomy, KPI comparability, observation-versus-publication timing, historical base rates, alternative causes, scenario assumptions, disconfirming indicators, and contradictions.
 
 Required outputs:
 
@@ -263,15 +239,15 @@ python scripts/research_control.py checkpoint \
   --phase ANALYZED
 ```
 
-## 8. Reproduce material outputs
+## 9. Reproduce material outputs
 
-Regenerate material calculations, tables, and figures in a clean process. Record the environment, pinned official DeerFlow version where relevant, Git commit, sandbox image digest, commands, seeds, input hashes, output hashes, warnings, and differences in:
+Regenerate material calculations, tables, and figures in a clean process. Record official DeerFlow version where relevant, Git commit, sandbox image digest, commands, seeds, input/output hashes, warnings, and differences in:
 
 ```text
 runs/<run_id>/reproducibility_report.json
 ```
 
-The report must contain `"status": "PASS"` before the controller accepts it:
+The report must contain `"status": "PASS"`:
 
 ```bash
 python scripts/research_control.py checkpoint \
@@ -279,7 +255,7 @@ python scripts/research_control.py checkpoint \
   --phase REPRODUCED
 ```
 
-## 9. Run the release-data gate
+## 10. Run the release-data gate
 
 ```bash
 python scripts/research_control.py gate \
@@ -287,26 +263,26 @@ python scripts/research_control.py gate \
   --stage release
 ```
 
-This validates calculation lineage, claim references, contradiction status, and 100% support coverage for material claims. The report is stored separately as `release_data_gate_report.json`.
+This validates calculation lineage, claim references, contradiction status, and 100% support coverage for material claims. It preserves `release_data_gate_report.json` separately from acquisition validation.
 
-## 10. Perform independent adversarial review
+## 11. Perform independent adversarial review
 
 Start a genuinely separate Claude Code session or another approved reviewer outside the primary official DeerFlow run. Give it:
 
 - research brief and approved plan;
-- source and dataset manifests;
-- acquisition and release-data gate reports;
-- official DeerFlow `request.json`, `events.jsonl`, and `result.json` audit records;
+- deployment preflight and data gate reports;
+- source/dataset manifests;
+- DeerFlow request/event/result audit records;
 - code and relevant diff;
 - calculation manifest and outputs;
 - claim ledger;
-- candidate charts/report if available.
+- candidate charts/report.
 
-Do not give it the implementer's private reasoning and do not instruct it that the work should pass.
+Do not give it the implementer's private reasoning or tell it the work should pass.
 
-An ACP Claude process called by the same official DeerFlow run may be used as an implementation critic. It does not satisfy final release independence by itself.
+An ACP Claude process spawned by the same primary DeerFlow run may help implementation, but does not independently authorize release.
 
-The reviewer writes:
+The reviewer writes `runs/<run_id>/review_report.json`:
 
 ```json
 {
@@ -317,17 +293,17 @@ The reviewer writes:
 }
 ```
 
-to `runs/<run_id>/review_report.json`. Then record the verdict:
+Then:
 
 ```bash
 python scripts/research_control.py review --run-dir "$RUN_DIR"
 ```
 
-If independent review is unavailable, stop with `NEEDS_HUMAN`; do not simulate it.
+If independent review is unavailable, stop with `NEEDS_HUMAN`.
 
-## 11. Synthesize and release
+## 12. Synthesize and release
 
-Codex creates the candidate report using only verified claim-ledger records and reproducible calculations. It also writes `release_requirements.json`, for example:
+Codex creates the candidate report using only verified claims and reproducible calculations. It also writes `release_requirements.json`:
 
 ```json
 {
@@ -339,7 +315,7 @@ Codex creates the candidate report using only verified claim-ledger records and 
 }
 ```
 
-If any sensitive flag is true, `human_approved` must be true before release.
+Any true sensitive flag requires `human_approved: true`.
 
 ```bash
 python scripts/research_control.py release \
@@ -347,44 +323,28 @@ python scripts/research_control.py release \
   --candidate candidate_report.md
 ```
 
-Release requires both keys:
+Release rechecks:
 
-1. deterministic acquisition/release-data and reproducibility reports are `PASS`;
-2. independent review is `PASS` with zero critical findings.
+1. DeerFlow deployment preflight;
+2. acquisition and release-data gates;
+3. reproducibility;
+4. independent review with zero critical findings;
+5. required human approval.
 
-## 12. Hermes and OpenClaw integration
+## 13. Hermes and OpenClaw
 
-### Hermes
+Hermes may retrieve approved operational knowledge and capture candidate lessons. Official DeerFlow memory and Hermes memory are never financial evidence.
 
-Use Hermes to retrieve approved source quirks and procedures before planning, and to write post-run lessons only under candidate memory/skill paths. Promotion requires regression evidence and independent approval.
+OpenClaw may schedule runs, trigger intake, check heartbeat, and report terminal states. It may not alter Gate reports, waive failures, or publish conclusions.
 
-Do not use official DeerFlow conversational memory or Hermes memory as financial evidence.
-
-### OpenClaw
-
-Use OpenClaw for schedules, webhooks, heartbeat checks, and notifications. It may create intake tasks and report terminal states. It must not alter gate reports, waive failures, or publish research conclusions.
-
-## 13. Inspect current state
+## 14. Inspect current state
 
 ```bash
 python scripts/research_control.py status --run-dir "$RUN_DIR"
 ```
 
-The conversation history of Codex, official DeerFlow, Claude Code, Hermes, or OpenClaw is not run state. `run_state.json` and preserved artifacts are the source of truth.
+Conversation history is not run state. `run_state.json` and preserved artifacts are the source of truth.
 
-## 14. Current integration stop condition
+## Current production stop condition
 
-Do not claim a production end-to-end run until the real custom financial-data service provides:
-
-- repository or deployment location;
-- MCP, HTTP, CLI, or SDK transport;
-- authentication method;
-- dataset catalogue and field dictionary;
-- entity mapping rules;
-- units, currency, timezone, frequency, revisions, and adjustments;
-- publication/availability-time semantics;
-- rate-limit and error behavior;
-- licensing constraints;
-- market, fundamental, macro, filing, and industry fixtures.
-
-Until then, only the official DeerFlow runtime adapter, Custom Agent contracts, deterministic gates, and placeholder financial-data interface can be tested.
+Do not claim a real end-to-end financial run until the custom financial-data service provides its deployment/transport, authentication, dataset catalogue, field dictionary, entity mapping, units, revisions, adjustment conventions, point-in-time semantics, rate-limit/error behavior, licensing constraints, and representative market/fundamental/macro/filing/industry fixtures.
