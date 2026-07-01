@@ -3,6 +3,8 @@ name: Research Gates
 on:
   pull_request:
     paths:
+      - "adapters/**"
+      - "integrations/**"
       - "scripts/**"
       - "schemas/**"
       - "tests/**"
@@ -13,6 +15,8 @@ on:
   push:
     branches: [master]
     paths:
+      - "adapters/**"
+      - "integrations/**"
       - "scripts/**"
       - "schemas/**"
       - "tests/**"
@@ -33,22 +37,40 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install test dependency
-        run: python -m pip install --disable-pip-version-check pytest
-      - name: Compile deterministic gates and controller
+      - name: Install test dependencies
+        run: python -m pip install --disable-pip-version-check pytest pyyaml
+      - name: Compile deterministic gates, controller, and adapters
         run: >-
           python -m py_compile
+          adapters/deerflow_gateway.py
           scripts/merge_manifests.py
           scripts/validate_evidence.py
           scripts/research_control.py
-      - name: Validate JSON schemas
+      - name: Validate JSON contracts and integration specs
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
-          for path in sorted(Path('schemas').glob('*.json')):
-              json.loads(path.read_text(encoding='utf-8'))
-              print(f'validated {path}')
+          roots = [Path('schemas'), Path('integrations')]
+          for root in roots:
+              for path in sorted(root.rglob('*.json')):
+                  json.loads(path.read_text(encoding='utf-8'))
+                  print(f'validated {path}')
+          PY
+      - name: Validate YAML profiles
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+          roots = [Path('loop'), Path('integrations')]
+          for root in roots:
+              for path in sorted(root.rglob('*.yaml')):
+                  yaml.safe_load(path.read_text(encoding='utf-8'))
+                  print(f'validated {path}')
           PY
       - name: Run research system tests
-        run: python -m pytest -q tests/test_research_gates.py tests/test_research_control.py
+        run: >-
+          python -m pytest -q
+          tests/test_research_gates.py
+          tests/test_research_control.py
+          tests/test_deerflow_gateway.py
