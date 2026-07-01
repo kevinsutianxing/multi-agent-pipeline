@@ -102,7 +102,6 @@ guardrails:
         - task
         - present_files
         - view_image
-        - clarification
         - ask_clarification
         - write_todos
         - tool_search
