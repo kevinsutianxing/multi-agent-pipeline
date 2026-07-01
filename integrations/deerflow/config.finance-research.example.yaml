@@ -15,7 +15,7 @@ memory:
 skill_evolution:
   enabled: false
 
-# Financial MCP deployments may expose many tools; load schemas only on demand.
+# fmdata and research deployments may expose several MCP tools; load schemas only on demand.
 tool_search:
   enabled: true
 
@@ -44,8 +44,9 @@ subagents:
       timeout_seconds: 600
       max_turns: 60
 
-# These names must match tools actually exported by the custom financial-data
-# MCP adapter. They are contracts, not claims that the tools already exist.
+# These names are exported by integrations/deerflow/fmdata_mcp_server.py.
+# Filing snapshots, revision listings, and web-evidence capture are deliberately
+# absent until a real implementation and validation contract exist.
 tool_groups:
   - name: finance-source-read
     tools:
@@ -53,16 +54,13 @@ tool_groups:
       - fetch_market_data_snapshot
       - fetch_fundamental_snapshot
       - fetch_macro_snapshot
-      - fetch_filing_snapshot
       - fetch_industry_dataset_snapshot
       - describe_dataset
-      - list_data_revisions
 
   - name: evidence-discovery
     tools:
       - web_search
       - web_fetch
-      - capture_web_evidence_snapshot
 
   - name: validated-data-read
     tools:
@@ -109,11 +107,8 @@ guardrails:
         - fetch_market_data_snapshot
         - fetch_fundamental_snapshot
         - fetch_macro_snapshot
-        - fetch_filing_snapshot
         - fetch_industry_dataset_snapshot
         - describe_dataset
-        - list_data_revisions
-        - capture_web_evidence_snapshot
         - web_search
         - web_fetch
         - ls
