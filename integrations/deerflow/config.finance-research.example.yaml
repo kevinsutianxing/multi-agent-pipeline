@@ -20,12 +20,13 @@ tool_search:
   enabled: true
 
 # Use container isolation. Never enable host bash in production financial research.
+# Replace image tags with a pinned digest in the real deployment manifest.
 sandbox:
   use: deerflow.community.aio_sandbox:AioSandboxProvider
   replicas: 3
   idle_timeout: 900
 
-# Bound runaway long-horizon execution. Tune after measured sample runs.
+# Bound runaway long-horizon execution. Tune only from measured sample runs.
 token_budget:
   enabled: true
   max_tokens: 180000
@@ -84,14 +85,42 @@ tool_groups:
       - str_replace
       - present_files
 
-# Start with a fail-closed policy. Per-agent tool-group restrictions are the
-# first boundary; a custom production provider should additionally inspect
-# command arguments, paths, network destinations, user/thread/run identity,
-# and deny writes to raw evidence, approved skills, and methodology directories.
+# Tool groups restrict what each Custom Agent can see. This global allowlist is
+# a second boundary and blocks management tools such as update_agent/setup_agent
+# and ACP delegation from production research agents.
+#
+# A custom production provider should additionally inspect command arguments,
+# paths, network destinations, user/thread/run identity, and deny writes to raw
+# evidence, approved skills, and methodology directories.
 guardrails:
   enabled: true
   fail_closed: true
   provider:
     use: deerflow.guardrails.builtin:AllowlistProvider
     config:
-      denied_tools: []
+      allowed_tools:
+        - task
+        - present_files
+        - view_image
+        - clarification
+        - ask_clarification
+        - write_todos
+        - tool_search
+        - resolve_financial_entity
+        - fetch_market_data_snapshot
+        - fetch_fundamental_snapshot
+        - fetch_macro_snapshot
+        - fetch_filing_snapshot
+        - fetch_industry_dataset_snapshot
+        - describe_dataset
+        - list_data_revisions
+        - capture_web_evidence_snapshot
+        - web_search
+        - web_fetch
+        - ls
+        - read_file
+        - glob
+        - grep
+        - write_file
+        - str_replace
+        - bash
