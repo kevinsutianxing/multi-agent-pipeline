@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Financial Research Plan",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "run_id",
+    "research_type",
+    "topic",
+    "as_of",
+    "hypotheses",
+    "data_requirements",
+    "tasks",
+    "gates",
+    "approval_items"
+  ],
+  "properties": {
+    "run_id": {"type": "string", "minLength": 1},
+    "research_type": {
+      "type": "string",
+      "enum": ["quant", "industry", "company", "mixed"]
+    },
+    "topic": {"type": "string", "minLength": 1},
+    "as_of": {"type": "string", "format": "date"},
+    "hypotheses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "hypothesis_id",
+          "statement",
+          "economic_mechanism",
+          "disconfirming_evidence"
+        ],
+        "properties": {
+          "hypothesis_id": {"type": "string"},
+          "statement": {"type": "string"},
+          "economic_mechanism": {"type": "string"},
+          "disconfirming_evidence": {
+            "type": "array",
+            "items": {"type": "string"}
+          }
+        }
+      }
+    },
+    "data_requirements": {"type": "array", "items": {"type": "object"}},
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "task_id",
+          "phase",
+          "role",
+          "inputs",
+          "outputs",
+          "acceptance_command"
+        ],
+        "properties": {
+          "task_id": {"type": "string"},
+          "phase": {"type": "string"},
+          "role": {"type": "string"},
+          "inputs": {"type": "array", "items": {"type": "string"}},
+          "outputs": {"type": "array", "items": {"type": "string"}},
+          "acceptance_command": {"type": "string"},
+          "dependencies": {"type": "array", "items": {"type": "string"}},
+          "max_attempts": {"type": "integer", "minimum": 1, "maximum": 3}
+        }
+      }
+    },
+    "gates": {"type": "array", "items": {"type": "object"}},
+    "approval_items": {"type": "array", "items": {"type": "object"}}
+  }
+}
