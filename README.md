@@ -1,226 +1,238 @@
 # Multi-Agent Pipeline
 
-A generalised framework for orchestrating multiple AI agents through **gated phases** with **structured output validation**. Runs on the [Claude Code](https://claude.ai/code) Workflow tool (`cc-connect`).
+A generalised framework for orchestrating multiple AI agents through **gated phases** with **structured output validation**. The original templates run on the Claude Code Workflow tool (`cc-connect`).
 
-This repository now also contains a finance-research governance overlay for coordinating Codex, Claude Code, Hermes, OpenClaw, DeerFlow, and DeerFlow-style research executors.
+The repository also contains a stricter financial-research system led by external Codex and backed by deterministic evidence gates.
 
-## Finance Research Overlay
+## Financial Research System
 
-The finance overlay is built around one rule:
+The financial overlay is built around one rule:
 
-> Financial research must be based on validated facts and reproducible evidence. Agents must not fabricate data, sources, dates, prices, filings, or conclusions.
+> Financial research must be based on validated facts and reproducible evidence. Agents must not fabricate data, sources, dates, prices, filings, service capabilities, or conclusions.
 
-Core files:
+### DeerFlow naming boundary
 
-| File | Purpose |
-|---|---|
-| `AGENTS.md` | Repository-level constitution and non-negotiable agent rules |
-| `docs/DATA_TRUST_CONTRACT.md` | Data validation and provenance standard |
-| `docs/AGENT_COORDINATION_MODEL.md` | Multi-agent role split across Codex, Claude Code, Hermes, OpenClaw, and DeerFlow |
-| `loop/research_loop.yaml` | Machine-readable finance research loop |
-| `prompts/CODEX_CHIEF_RESEARCH_PLANNER.md` | Prompt for Codex as chief research planner |
-| `schemas/task.schema.json` | Research task contract |
-| `schemas/claim.schema.json` | Claim ledger contract |
+This system distinguishes two separate components:
 
-Recommended finance execution flow:
+- **Official ByteDance DeerFlow 2.x:** agent execution harness with Custom Agents, subagents, Skills, MCP, Sandbox, memory, Gateway APIs, and run events.
+- **Custom financial-data DeerFlow service:** separate market/fundamental/macro/filing/industry data plane connected through MCP or an equivalent narrow adapter.
+
+Official DeerFlow is not the financial database. The custom data service is not the research planner or reviewer.
+
+### Recommended architecture
 
 ```text
 User / OpenClaw / Hermes
-        ↓
-Codex qualifies and plans
-        ↓
-DeerFlow retrieves configured financial data
-        ↓
-Deterministic validation gates check data
-        ↓
-Codex or specialist executor analyzes
-        ↓
-Claude Code performs adversarial review
-        ↓
-Codex assembles final evidence bundle
+        |
+        v
+External Codex chief planner
+        |
+        v
+External deterministic state controller
+        |
+        v
+Official DeerFlow 2.x execution runtime
+   |              |                |
+finance-       industry-         quant-
+evidence       research          analysis
+agent          agent             agent
+   \              |                /
+        custom financial-data MCP
+                    |
+        immutable snapshots + metadata
+                    |
+          deterministic data gates
+                    |
+        external independent reviewer
+                    |
+             controlled release
 ```
 
-## Architecture
+Agent output, agent consensus, MCP success, and JSON-shaped `overall_pass=true` are not financial validation evidence.
 
+### Core files
+
+| File | Purpose |
+|---|---|
+| `AGENTS.md` | Repository-level financial research constitution |
+| `docs/DATA_TRUST_CONTRACT.md` | Data trust levels, provenance, and validation standard |
+| `docs/AGENT_COORDINATION_MODEL.md` | Multi-agent responsibility model |
+| `docs/DEERFLOW_CAPABILITY_ASSESSMENT.md` | Official DeerFlow capabilities, limits, and architecture decision |
+| `docs/FINANCE_DATA_MCP_CONTRACT.md` | Snapshot-first contract for the custom financial-data service |
+| `docs/EXECUTABLE_RESEARCH_GATES.md` | Deterministic evidence and claim gates |
+| `docs/CODEX_LED_RESEARCH_RUNBOOK.md` | End-to-end operating procedure |
+| `loop/research_execution_profile.yaml` | Machine-readable enforced execution profile |
+| `prompts/CODEX_CHIEF_RESEARCH_PLANNER.md` | Codex chief planner operating prompt |
+| `adapters/deerflow_gateway.py` | Auditable official DeerFlow Gateway/SSE adapter |
+| `scripts/deerflow_preflight.py` | Deployment, MCP, agent, and security preflight |
+| `scripts/research_control.py` | External state and release controller |
+| `scripts/validate_evidence.py` | Snapshot, timing, lineage, and claim validator |
+| `integrations/deerflow/` | Official DeerFlow config, Custom Agent specs, and deployment templates |
+
+### Enforced financial state progression
+
+```text
+INTAKE
+-> PLANNED
+-> DEERFLOW_READY
+-> ACQUIRED
+-> DATA_VALIDATED
+-> ANALYZED
+-> REPRODUCED
+-> RELEASE_DATA_VALIDATED
+-> REVIEWED
+-> COMPLETED
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    MULTI-AGENT PIPELINE                          │
-│                                                                  │
-│  Phase 1         Phase 2        Phase 3        Phase 4          │
-│  ┌────────┐     ┌────────┐     ┌────────┐     ┌────────┐       │
-│  │VERIFY  │────▶│ GATE   │────▶│EXECUTE │────▶│BRIDGE  │──┐    │
-│  │环境验证 │     │数据门控 │     │核心分析 │     │交叉验证 │  │    │
-│  └────────┘     └────────┘     └────────┘     └────────┘  │    │
-│       │              │              │               │       │    │
-│       ▼              ▼              ▼               ▼       │    │
-│    ABORT          BLOCK          BLOCK           BLOCK      │    │
-│  (环境不满足)   (数据不合格)   (分析失败)    (问题未解决)    │
-│                                                             │    │
-│  Phase 5         Phase 6                                     │
-│  ┌────────┐     ┌────────┐                                  │
-│  │OUTPUT  │◀────│RECORD  │◀─────────────────────────────────┘    │
-│  │产出生成 │     │归档交接 │                                      │
-│  └────────┘     └────────┘                                      │
-│                                                                  │
-│  ALL phases pass → COMPLETED                                     │
-│  Any hard gate fails → Pipeline stops with ABORTED/BLOCKED       │
-└─────────────────────────────────────────────────────────────────┘
+
+Preflight, acquisition validation, release validation, reproducibility, and independent review are hard gates. The controller reruns live DeerFlow preflight at release.
+
+### Start here
+
+```text
+1. Read AGENTS.md and the Data Trust Contract.
+2. Read the DeerFlow capability assessment and financial-data MCP contract.
+3. Configure a pinned official DeerFlow deployment and the real financial-data MCP server.
+4. Follow docs/CODEX_LED_RESEARCH_RUNBOOK.md.
+5. Keep the PR/run blocked until real market, fundamental, macro, filing, and industry fixtures pass end to end.
 ```
+
+## Generic Six-Phase Architecture
+
+The original domain-agnostic template remains useful for non-financial or lower-assurance workflows:
+
+```text
+VERIFY -> GATE -> EXECUTE -> BRIDGE -> OUTPUT -> RECORD
+```
+
+For high-assurance financial research, the model-declared `GATE` in the generic template is not sufficient by itself. Use the external controller and deterministic financial gates described above.
 
 ## Core Concepts
 
 ### 1. Agent as Phase
 
 Each phase is a standalone AI agent with:
-- A **specific role/persona** (defined in the prompt)
-- A **JSON Schema** contract for structured output
-- **Hard gate logic**: if the phase fails a critical check, the entire pipeline stops
+
+- a specific role/persona;
+- a JSON Schema contract for structured output;
+- hard gate logic that stops the pipeline on critical failure.
 
 ### 2. Structured Output Contracts
 
-Every agent returns validated JSON conforming to a schema. This means:
-- Downstream phases receive **guaranteed-shape data**, not free text
-- Type mismatches are caught at the schema layer
-- The `schema` option on `agent()` enforces this at the tool-call level
+Every agent returns validated JSON conforming to a schema. This gives downstream phases a guaranteed data shape and catches type mismatches.
 
-### 3. Hard Gates (Fail-Fast)
+Schema validation proves shape, not factual correctness. Financial values require snapshot-backed provenance and deterministic checks.
 
-| Gate | Trigger | Action |
-|------|---------|--------|
+### 3. Hard Gates
+
+| Generic gate | Trigger | Action |
+|---|---|---|
 | VERIFY | `env_ready=false` | ABORT — environment not ready |
-| GATE | `overall_pass=false` | BLOCK — data quality insufficient |
+| GATE | `overall_pass=false` | BLOCK — input quality insufficient |
 | EXECUTE | `status=failed` | BLOCK — core analysis failed |
-| BRIDGE | `can_proceed=false` | BLOCK — unresolved CRITICAL findings |
-
-This prevents garbage-in-garbage-out: bad data never reaches the output phase.
+| BRIDGE | `can_proceed=false` | BLOCK — unresolved critical findings |
 
 ### 4. Phase Chaining
 
-Later phases consume outputs from earlier phases via template literals:
+Later phases consume outputs from earlier phases:
 
 ```javascript
-// Phase 4 (BRIDGE) reads Phase 2 (GATE) results:
 const bridge = await agent(
   `Read the gate report at ${gate?.report_path}...`,
   { schema: BRIDGE_SCHEMA }
 )
 
-// Phase 5 (OUTPUT) reads Phase 4 (BRIDGE) results:
 const output = await agent(
   `Bridge found ${bridge?.total_findings} issues...`,
   { schema: OUTPUT_SCHEMA }
 )
 ```
 
-## Usage
-
-### Quick Start
+## Generic Template Usage
 
 ```bash
-# 1. Copy the template
 cp pipeline-template.js my-pipeline.js
-
-# 2. Customize the CONFIG block
-#    - baseDir, outputDir, name
-
-# 3. Customize each phase's agent prompt
-#    - Replace the placeholder instructions with your domain logic
-
-# 4. Customize the schemas if needed
-
-# 5. Run the pipeline
+# Customize CONFIG, prompts, and schemas.
 /workflow run my-pipeline
 ```
 
-### Customising for Your Domain
+The six-phase template can be adapted for code review, content, ETL, due diligence, and other domains.
 
-The template is designed to be **domain-agnostic**. The 6-phase structure works for:
+## Execution Patterns
 
-| Domain | Phase 3 (EXECUTE) does | Phase 5 (OUTPUT) produces |
-|--------|----------------------|--------------------------|
-| Financial Research | Market data analysis, indicator calculation | Research report with charts |
-| Code Review | Lint, test, security scan | Review dashboard with findings |
-| Content Writing | Research, drafting, fact-checking | Edited article |
-| Data Pipeline | ETL, transformation, aggregation | Clean dataset + summary |
-| Due Diligence | Multi-source verification, risk scoring | Diligence report |
+### Single agent
 
-See `examples/` for domain-specific adaptations.
-
-## Execution Patterns for Phase 3 (EXECUTE)
-
-The EXECUTE phase supports three patterns depending on task complexity:
-
-### Pattern A: Single Agent (simple)
 ```javascript
 const result = await agent(singlePrompt, { schema: EXECUTE_SCHEMA })
 ```
 
-### Pattern B: Parallel Agents (multi-dimensional)
+### Parallel agents
+
 ```javascript
 const results = await parallel([
   () => agent(dimensionAPrompt, { label: 'dimA', phase: 'EXECUTE', schema: DIM_SCHEMA }),
   () => agent(dimensionBPrompt, { label: 'dimB', phase: 'EXECUTE', schema: DIM_SCHEMA }),
 ])
-// All dimensions run concurrently — wall-clock = slowest agent
 ```
 
-### Pattern C: Pipeline (sequential stages per item)
+### Per-item pipeline
+
 ```javascript
 const results = await pipeline(
   items,
   item => agent(stage1Prompt(item), { phase: 'EXECUTE' }),
   prev => agent(stage2Prompt(prev), { phase: 'EXECUTE' }),
 )
-// Each item flows through all stages independently — no barrier between items
 ```
 
-## Prerequisites
+## Repository Structure
 
-- [Claude Code](https://claude.ai/code) with `cc-connect` installed
-- The Workflow tool must be available (included in cc-connect)
-
-## File Structure
-
-```
+```text
 multi-agent-pipeline/
 ├── AGENTS.md
 ├── README.md
 ├── pipeline-template.js
+├── adapters/
+│   ├── README.md
+│   └── deerflow_gateway.py
 ├── docs/
+│   ├── AGENT_COORDINATION_MODEL.md
+│   ├── CODEX_LED_RESEARCH_RUNBOOK.md
 │   ├── DATA_TRUST_CONTRACT.md
-│   └── AGENT_COORDINATION_MODEL.md
+│   ├── DEERFLOW_CAPABILITY_ASSESSMENT.md
+│   ├── EXECUTABLE_RESEARCH_GATES.md
+│   └── FINANCE_DATA_MCP_CONTRACT.md
+├── integrations/deerflow/
+│   ├── agents/
+│   ├── config.finance-research.example.yaml
+│   ├── deployment-manifest.example.json
+│   └── extensions_config.finance-research.example.json
 ├── loop/
-│   └── research_loop.yaml
+│   ├── research_loop.yaml
+│   └── research_execution_profile.yaml
 ├── prompts/
 │   └── CODEX_CHIEF_RESEARCH_PLANNER.md
 ├── schemas/
-│   ├── task.schema.json
-│   └── claim.schema.json
+├── scripts/
+│   ├── deerflow_preflight.py
+│   ├── merge_manifests.py
+│   ├── research_control.py
+│   └── validate_evidence.py
+├── tests/
 └── examples/
     ├── research-report.js
     └── code-review.js
 ```
 
-## How It Works Under the Hood
-
-1. `Workflow` tool parses the script and discovers `meta.phases` for progress display
-2. Each `agent()` call spawns a subagent with the given prompt + schema
-3. The subagent returns structured JSON validated against the schema
-4. The script evaluates the gate condition; on failure, returns early with status
-5. The final `return` value is the pipeline's structured result
-
 ## Related Patterns
 
-These patterns can be composed into the pipeline as needed:
+| Pattern | Use when |
+|---|---|
+| Adversarial Verify | Need to catch plausible-but-wrong outputs |
+| Judge Panel | Solution space is broad and independent attempts help |
+| Loop-Until-Dry | Discovery size is unknown |
+| Completeness Critic | Need a final blind-spot review |
 
-| Pattern | Use When |
-|---------|----------|
-| **Adversarial Verify** | Need to catch plausible-but-wrong outputs — spawn N skeptics, each tries to refute |
-| **Judge Panel** | Solution space is wide — N independent attempts, scored by judges, synthesis from winner |
-| **Loop-Until-Dry** | Unknown-size discovery (bug finding, edge case hunting) — keep spawning until K rounds return nothing new |
-| **Completeness Critic** | Want to avoid blind spots — a final agent asks "what's missing?" |
-
-These are documented in the Workflow tool's help text and can be dropped into any phase.
+These patterns improve exploration but do not replace source evidence, deterministic gates, or independent release review.
 
 ## License
 
