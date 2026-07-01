@@ -54,8 +54,13 @@ phases:
     outputs: [source_manifest.json]
   - id: DATA_GATE
     owner: deterministic_runner
-    command: python scripts/validate_evidence.py --run-dir runs/<run_id> --as-of <as_of> --stage acquisition
-    pass_condition: data_gate_report.status == PASS
+    command: >-
+      python scripts/validate_evidence.py
+      --run-dir runs/<run_id>
+      --as-of <as_of>
+      --stage acquisition
+      --report runs/<run_id>/acquisition_gate_report.json
+    pass_condition: acquisition_gate_report.status == PASS
     fail_state: BLOCKED_DATA
   - id: ANALYZE
     owner: codex_or_specialist
@@ -66,10 +71,15 @@ phases:
     outputs: [reproducibility_report.json]
   - id: RELEASE_DATA_GATE
     owner: deterministic_runner
-    command: python scripts/validate_evidence.py --run-dir runs/<run_id> --as-of <as_of> --stage release
+    command: >-
+      python scripts/validate_evidence.py
+      --run-dir runs/<run_id>
+      --as-of <as_of>
+      --stage release
+      --report runs/<run_id>/release_data_gate_report.json
     pass_condition:
-      - data_gate_report.status == PASS
-      - data_gate_report.summary.material_coverage == 1.0
+      - release_data_gate_report.status == PASS
+      - release_data_gate_report.summary.material_coverage == 1.0
     fail_state: BLOCKED_DATA
   - id: ADVERSARIAL_REVIEW
     owner: claude_code
