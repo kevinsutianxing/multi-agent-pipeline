@@ -1,16 +1,16 @@
 {
   "mcpServers": {
-    "financial-data": {
+    "fmdata-research": {
       "command": "python",
       "args": [
         "-m",
-        "your_financial_data_mcp_server"
+        "integrations.deerflow.fmdata_mcp_server"
       ],
       "enabled": true,
       "env": {
-        "FINANCIAL_DATA_SERVICE_URL": "$FINANCIAL_DATA_SERVICE_URL",
-        "FINANCIAL_DATA_SERVICE_TOKEN": "$FINANCIAL_DATA_SERVICE_TOKEN",
-        "FINANCIAL_DATA_SNAPSHOT_ROOT": "$FINANCIAL_DATA_SNAPSHOT_ROOT"
+        "FMDATA_URL": "$FMDATA_URL",
+        "FMDATA_RESEARCH_KEY": "$FMDATA_RESEARCH_KEY",
+        "PYTHONPATH": "$MULTI_AGENT_PIPELINE_ROOT"
       }
     }
   },
