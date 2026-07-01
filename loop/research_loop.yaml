@@ -1,0 +1,295 @@
+version: 1
+name: finance-research-loop
+owner: kevinsutianxing
+
+mission: >
+  Coordinate multiple agents to produce fact-based, data-validated financial research,
+  including quantitative research, industry trend research, macro monitoring, valuation
+  analysis, and report generation.
+
+non_negotiable_rules:
+  - no_fabricated_financial_facts
+  - approved_data_routes_required
+  - provenance_required_for_numeric_claims
+  - facts_estimates_interpretations_must_be_separated
+  - no_future_data_leakage
+  - no_hidden_methodology_drift
+  - independent_review_required
+  - validation_failure_must_be_visible
+
+agents:
+  codex:
+    role: chief_research_planner_and_integration_lead
+    owns:
+      - task_decomposition
+      - repository_changes
+      - schemas
+      - plans
+      - evidence_bundle
+      - final_readiness_summary
+    forbidden:
+      - fabricate_data
+      - certify_own_outputs_without_gates
+      - change_methodology_without_review
+
+  claude_code:
+    role: deep_builder_and_adversarial_reviewer
+    owns:
+      - complex_refactors
+      - failed_gate_debugging
+      - methodology_drift_review
+      - evidence_strength_review
+      - rendering_review
+
+  hermes:
+    role: memory_skill_and_recurring_research_steward
+    owns:
+      - recurring_tasks
+      - candidate_lessons
+      - candidate_skills
+      - long_running_memory
+    forbidden:
+      - promote_rules_without_review
+
+  openclaw:
+    role: always_on_operations_gateway
+    owns:
+      - standing_orders
+      - heartbeat_checks
+      - webhook_routing
+      - task_intake
+    forbidden:
+      - bypass_gates
+
+  deerflow:
+    role: data_and_workflow_service_layer
+    owns:
+      - financial_data_retrieval
+      - source_adapters
+      - workflow_execution
+      - raw_and_normalized_artifacts
+    required_outputs:
+      - data
+      - metadata
+      - retrieval_log
+
+states:
+  - INTAKE
+  - QUALIFIED
+  - PLANNED
+  - DATA_REQUESTED
+  - DATA_RETRIEVED
+  - DATA_VALIDATED
+  - ANALYZED
+  - REVIEWED
+  - DELIVERED
+  - RECORDED
+  - BLOCKED
+
+terminal_states:
+  - DONE
+  - BLOCKED_DATA_UNAVAILABLE
+  - BLOCKED_DATA_INVALID
+  - BLOCKED_METHODOLOGY_REVIEW_REQUIRED
+  - BLOCKED_HUMAN_DECISION_REQUIRED
+  - FAILED_GATES
+  - BUDGET_EXHAUSTED
+
+standard_loop:
+  - id: discover
+    owner: openclaw_or_hermes_or_user
+    output: task.yaml
+
+  - id: qualify
+    owner: codex
+    required_checks:
+      - task_is_financial_research_or_pipeline_work
+      - required_scope_is_clear
+      - data_routes_are_identified
+      - methodology_risk_is_classified
+    output: qualification.yaml
+
+  - id: plan
+    owner: codex
+    output: plan.yaml
+    required_sections:
+      - research_question
+      - hypotheses
+      - data_requests
+      - validation_plan
+      - analysis_plan
+      - review_plan
+      - stop_conditions
+
+  - id: acquire_data
+    owner: deerflow
+    output: data_artifacts
+    required_metadata: true
+
+  - id: validate_data
+    owner: deterministic_gates
+    gates:
+      - source_identity
+      - freshness
+      - completeness
+      - unit_currency
+      - time_alignment
+      - range_sanity
+      - cross_source_reconciliation
+      - transformation_audit
+      - point_in_time_safety
+      - research_fitness
+    output: data_validation.json
+
+  - id: analyze
+    owner: codex_or_research_executor
+    allowed_only_after:
+      - validate_data
+    output:
+      - analysis_results.json
+      - claims.yaml
+
+  - id: review
+    owner: claude_code_or_independent_reviewer
+    required_reviews:
+      - data_provenance_review
+      - methodology_review
+      - conclusion_strength_review
+      - reproducibility_review
+    output: review.md
+
+  - id: deliver
+    owner: codex
+    allowed_only_after:
+      - validate_data
+      - review
+    output:
+      - final_report.md
+      - evidence_bundle
+
+  - id: record
+    owner: codex
+    output:
+      - run_state.json
+      - lessons_candidate.md
+
+required_artifacts:
+  - runs/<run_id>/task.yaml
+  - runs/<run_id>/plan.yaml
+  - runs/<run_id>/data_requests.yaml
+  - runs/<run_id>/data_validation.json
+  - runs/<run_id>/analysis_results.json
+  - runs/<run_id>/claims.yaml
+  - runs/<run_id>/review.md
+  - runs/<run_id>/gate_results.json
+  - runs/<run_id>/final_summary.md
+
+research_types:
+  quantitative_factor_research:
+    required_gates:
+      - universe_definition
+      - survivorship_bias_check
+      - point_in_time_check
+      - corporate_action_check
+      - benchmark_alignment
+      - transaction_cost_assumption
+      - train_test_split_or_walk_forward
+      - leakage_check
+      - metric_reproducibility
+
+  backtest:
+    required_gates:
+      - no_future_labels
+      - no_future_constituents
+      - no_revised_data_unless_disclosed
+      - market_calendar_alignment
+      - rebalance_timing_check
+      - transaction_costs
+      - slippage_assumptions
+      - benchmark_comparison
+
+  industry_trend_research:
+    required_gates:
+      - primary_source_check
+      - source_triangulation
+      - estimate_labeling
+      - trend_signal_validation
+      - contradiction_check
+      - conclusion_strength_check
+
+  valuation_research:
+    required_gates:
+      - input_source_validation
+      - comparable_selection_rationale
+      - multiple_definition_check
+      - scenario_assumption_check
+      - sensitivity_table_required
+      - hard_anchor_vs_estimate_labeling
+
+  macro_market_monitoring:
+    required_gates:
+      - data_freshness
+      - release_calendar_alignment
+      - revision_policy_check
+      - cross_asset_consistency
+      - narrative_strength_check
+
+methodology_change_policy:
+  autonomous_allowed:
+    - adapter_bug_fix
+    - parser_fix
+    - schema_typo_fix
+    - validation_script_expansion
+    - report_rendering_fix
+  approval_required:
+    - new_factor_definition
+    - scoring_weight_change
+    - portfolio_construction_change
+    - benchmark_change
+    - valuation_model_change
+    - accepted_source_change
+    - investment_conclusion_change
+
+claim_policy:
+  allowed_claim_types:
+    - fact
+    - estimate
+    - model_output
+    - interpretation
+    - recommendation
+  requirements:
+    fact:
+      - validated_source
+      - citation_or_dataset_id
+    estimate:
+      - estimate_label
+      - source_or_model
+      - uncertainty_note
+    model_output:
+      - input_dataset_ids
+      - method_version
+      - validation_status
+    interpretation:
+      - linked_facts_or_model_outputs
+      - limitation_note
+    recommendation:
+      - supporting_evidence
+      - risk_statement
+      - confidence_level
+      - not_financial_advice_label_if_external
+
+merge_readiness:
+  required:
+    - all_relevant_data_gates_passed_or_explicitly_waived
+    - no_unreviewed_methodology_change
+    - deterministic_tests_passed
+    - independent_review_passed
+    - evidence_bundle_complete
+    - limitations_visible
+
+learning_policy:
+  direct_self_promotion: false
+  candidate_path: skills/candidates
+  approved_path: skills/approved
+  requires_regression_replay: true
+  requires_independent_review: true
