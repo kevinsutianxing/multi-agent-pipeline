@@ -2,6 +2,44 @@
 
 A generalised framework for orchestrating multiple AI agents through **gated phases** with **structured output validation**. Runs on the [Claude Code](https://claude.ai/code) Workflow tool (`cc-connect`).
 
+This repository now also contains a finance-research governance overlay for coordinating Codex, Claude Code, Hermes, OpenClaw, DeerFlow, and DeerFlow-style research executors.
+
+## Finance Research Overlay
+
+The finance overlay is built around one rule:
+
+> Financial research must be based on validated facts and reproducible evidence. Agents must not fabricate data, sources, dates, prices, filings, or conclusions.
+
+Core files:
+
+| File | Purpose |
+|---|---|
+| `AGENTS.md` | Repository-level constitution and non-negotiable agent rules |
+| `docs/DATA_TRUST_CONTRACT.md` | Data validation and provenance standard |
+| `docs/AGENT_COORDINATION_MODEL.md` | Multi-agent role split across Codex, Claude Code, Hermes, OpenClaw, and DeerFlow |
+| `loop/research_loop.yaml` | Machine-readable finance research loop |
+| `prompts/CODEX_CHIEF_RESEARCH_PLANNER.md` | Prompt for Codex as chief research planner |
+| `schemas/task.schema.json` | Research task contract |
+| `schemas/claim.schema.json` | Claim ledger contract |
+
+Recommended finance execution flow:
+
+```text
+User / OpenClaw / Hermes
+        ↓
+Codex qualifies and plans
+        ↓
+DeerFlow retrieves configured financial data
+        ↓
+Deterministic validation gates check data
+        ↓
+Codex or specialist executor analyzes
+        ↓
+Claude Code performs adversarial review
+        ↓
+Codex assembles final evidence bundle
+```
+
 ## Architecture
 
 ```
@@ -16,10 +54,10 @@ A generalised framework for orchestrating multiple AI agents through **gated pha
 │       │              │              │               │       │    │
 │       ▼              ▼              ▼               ▼       │    │
 │    ABORT          BLOCK          BLOCK           BLOCK      │    │
-│  (环境不满足)   (数据不合格)   (分析失败)    (问题未解决)    │    │
+│  (环境不满足)   (数据不合格)   (分析失败)    (问题未解决)    │
 │                                                             │    │
-│  Phase 5         Phase 6                                     │    │
-│  ┌────────┐     ┌────────┐                                  │    │
+│  Phase 5         Phase 6                                     │
+│  ┌────────┐     ┌────────┐                                  │
 │  │OUTPUT  │◀────│RECORD  │◀─────────────────────────────────┘    │
 │  │产出生成 │     │归档交接 │                                      │
 │  └────────┘     └────────┘                                      │
@@ -145,11 +183,22 @@ const results = await pipeline(
 
 ```
 multi-agent-pipeline/
-├── README.md                  # This file
-├── pipeline-template.js       # The generalized 6-phase template
+├── AGENTS.md
+├── README.md
+├── pipeline-template.js
+├── docs/
+│   ├── DATA_TRUST_CONTRACT.md
+│   └── AGENT_COORDINATION_MODEL.md
+├── loop/
+│   └── research_loop.yaml
+├── prompts/
+│   └── CODEX_CHIEF_RESEARCH_PLANNER.md
+├── schemas/
+│   ├── task.schema.json
+│   └── claim.schema.json
 └── examples/
-    ├── research-report.js     # Financial/domain research report pipeline
-    └── code-review.js         # Multi-dimensional code review pipeline
+    ├── research-report.js
+    └── code-review.js
 ```
 
 ## How It Works Under the Hood
