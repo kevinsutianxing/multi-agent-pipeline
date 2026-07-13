@@ -1,15 +1,10 @@
 # Multi-Agent Pipeline
 
-An evidence-gated orchestration framework for financial and technical research
-across Codex, Claude Code, Hermes, and deterministic validation steps.
+An evidence-gated orchestration framework for financial and technical research across Codex, Claude Code, Hermes, deterministic validation, and supervised delivery.
 
-## Supported deployment
+## Project status
 
-The only supported production runtime is under [`implementation/`](implementation/README.md).
-It uses one SQLite-backed state machine for ingress, leased execution, retries,
-artifact validation, report persistence, and exact-target notifications.
-
-Agents must follow [`implementation/docs/AGENT_USAGE_GUIDE.md`](implementation/docs/AGENT_USAGE_GUIDE.md) before starting, inspecting, recovering, deploying, or modifying the runtime.
+The only supported production runtime is under [`implementation/`](implementation/README.md). It uses one SQLite-backed state machine for ingress, leased execution, retries, typed artifact validation, report persistence, and exact-target notifications.
 
 ```text
 Feishu -> Hermes ingress -> SQLite queue -> supervised worker
@@ -17,27 +12,78 @@ Feishu -> Hermes ingress -> SQLite queue -> supervised worker
         -> report.md + durable notification outbox
 ```
 
-Deploy from SZ81:
+Removed v1 controllers, watchdogs, dispatchers, and parallel Hermes workflows are not supported and must not be restored.
+
+## Repository map
+
+| Path | Purpose | Production status |
+|---|---|---|
+| [`implementation/`](implementation/README.md) | Runtime, plugins, deployment, services, tests | **Production** |
+| [`docs/`](docs/README.md) | Governance, architecture, project map, maintenance policy | Authoritative policy |
+| [`schemas/`](schemas/) | Machine-readable research contracts | Authoritative contracts |
+| [`loop/`](loop/) | Machine-readable research lifecycle | Authoritative workflow |
+| [`examples/`](examples/README.md) | Demonstrations and historical patterns | Reference only |
+| [`pipeline-template.js`](pipeline-template.js) | Earlier Claude Code Workflow pattern | Reference only |
+
+See [`docs/PROJECT_MAP.md`](docs/PROJECT_MAP.md) for ownership boundaries and rules for adding files or directories.
+
+## Required reading for agents
+
+Before starting, inspecting, recovering, deploying, or modifying the runtime, read:
+
+1. [`AGENTS.md`](AGENTS.md)
+2. [`docs/DATA_TRUST_CONTRACT.md`](docs/DATA_TRUST_CONTRACT.md)
+3. [`implementation/docs/AGENT_USAGE_GUIDE.md`](implementation/docs/AGENT_USAGE_GUIDE.md)
+4. [`implementation/docs/IMPLEMENTATION.md`](implementation/docs/IMPLEMENTATION.md)
+
+## Common commands
+
+The root [`Makefile`](Makefile) is the canonical command entry point:
+
+```bash
+make help
+make test
+make list
+make status RUN_ID=<run_id>
+make context RUN_ID=<run_id>
+make retry RUN_ID=<run_id>
+```
+
+A blocked run should be retried only after correcting its underlying cause.
+
+## Deployment
+
+From the repository root on SZ81:
 
 ```bash
 cd /home/ubuntu/multi-agent-pipeline
-implementation/deploy/deploy-all.sh
+make deploy
 ```
 
-The deployment script runs the test suite, installs/enables the HK43 Hermes
-plugin and helpers, installs the SZ81 worker/notifier timers, disables the old
-watchdog, and runs a cross-host health check.
+The deployment process runs the test suite, installs and enables the HK43 Hermes plugin and helpers, installs the SZ81 worker/notifier timers, disables the removed watchdog units, and runs a cross-host health check.
 
-See:
+Verify an installed environment with:
 
-- [`implementation/docs/AGENT_USAGE_GUIDE.md`](implementation/docs/AGENT_USAGE_GUIDE.md) — required operating instructions for agents
-- [`implementation/README.md`](implementation/README.md) — runtime overview and commands
-- [`implementation/docs/IMPLEMENTATION.md`](implementation/docs/IMPLEMENTATION.md) — deployment/runbook
-- [`implementation/docs/CURRENT_STATE.md`](implementation/docs/CURRENT_STATE.md) — resolved root causes and validation
+```bash
+make health
+```
+
+Passing repository tests does not by itself prove HK43/SZ81 connectivity, agent authentication, provider availability, or Feishu delivery.
+
+## Documentation
+
+- [`docs/README.md`](docs/README.md) — repository documentation index
+- [`docs/PROJECT_MAP.md`](docs/PROJECT_MAP.md) — authoritative directory and ownership map
+- [`docs/MAINTENANCE.md`](docs/MAINTENANCE.md) — change, migration, deprecation, and release policy
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — contribution workflow and PR requirements
+- [`implementation/docs/README.md`](implementation/docs/README.md) — runtime documentation index
+- [`implementation/docs/CURRENT_STATE.md`](implementation/docs/CURRENT_STATE.md) — current architecture and environment-dependent risks
 
 ## Research governance
 
-The repository-level finance overlay remains governed by:
+The non-negotiable rule is that research must be based on validated facts and reproducible evidence. Agents must not fabricate data, sources, dates, prices, filings, calculations, or conclusions.
+
+Repository-wide governance is defined by:
 
 - [`AGENTS.md`](AGENTS.md)
 - [`docs/DATA_TRUST_CONTRACT.md`](docs/DATA_TRUST_CONTRACT.md)
@@ -46,20 +92,10 @@ The repository-level finance overlay remains governed by:
 - [`schemas/task.schema.json`](schemas/task.schema.json)
 - [`schemas/claim.schema.json`](schemas/claim.schema.json)
 
-The non-negotiable rule is that research must be based on validated facts and
-reproducible evidence. Agents must not fabricate data, sources, dates, prices,
-filings, calculations, or conclusions.
-
-## Reference templates
-
-`pipeline-template.js` and `examples/` are retained as reference patterns for
-Claude Code Workflow/`cc-connect`. They are not the deployed runtime and should
-not be mixed with the services under `implementation/`.
-
-## Tests
+## Validation
 
 ```bash
-python3 -m compileall -q implementation/scripts implementation/plugins implementation/tests
-python3 -m unittest discover -s implementation/tests -v
-bash -n implementation/deploy/*.sh
+make test
 ```
+
+This compiles the Python modules, runs the unit and isolated integration suite, and validates deployment-shell syntax. GitHub Actions calls the same target to prevent local/CI command drift.
