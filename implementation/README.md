@@ -2,7 +2,11 @@
 
 This directory contains the repository's only supported deployable runtime. The earlier file-state controller and watchdog were removed because they created a second, disconnected execution path.
 
-Agents operating or modifying this runtime must first read [`docs/AGENT_USAGE_GUIDE.md`](docs/AGENT_USAGE_GUIDE.md). It defines supported commands, stage contracts, recovery rules, prohibited legacy paths, and the definition of done.
+Agents operating or modifying this runtime must first read:
+
+1. [`docs/README.md`](docs/README.md) — runtime documentation index.
+2. [`docs/AGENT_USAGE_GUIDE.md`](docs/AGENT_USAGE_GUIDE.md) — supported commands, stage contracts, recovery rules, and definition of done.
+3. [`docs/IMPLEMENTATION.md`](docs/IMPLEMENTATION.md) — deployment and host runbook.
 
 ## Runtime
 
@@ -18,26 +22,34 @@ Feishu -> Hermes pre_gateway_dispatch plugin (HK43)
 
 The controller preserves every raw model response before normalization. A job advances only after its typed stage contract passes. QUALIFY, VALIDATE, and REVIEW are hard gates.
 
+## Directory ownership
+
+- `scripts/` — controller, worker, adapters, operator CLI, and notification sender.
+- `plugins/` — Hermes ingress integration.
+- `deploy/` — installation and health checks.
+- `systemd/` — supervised worker and notification units.
+- `tests/` — unit and isolated integration tests.
+- `docs/` — authoritative runtime operation and deployment documentation.
+- `state/` — generated local state; never commit it.
+
 ## Deploy
 
 From the repository root on SZ81:
 
 ```bash
-implementation/deploy/deploy-all.sh
+make deploy
 ```
 
-Configuration is installed at `/etc/multi-agent-pipeline.env`. Review `config/pipeline.env.example` before production use, especially the SSH aliases and agent commands.
+Configuration is installed at `/etc/multi-agent-pipeline.env`. Review `implementation/config/pipeline.env.example` before production use, especially SSH aliases and agent commands.
 
 ## Verify
 
 ```bash
-implementation/deploy/healthcheck.sh
-python3 implementation/scripts/reliable_ctl.py \
-  --db implementation/state/pipeline.db \
-  --runs-dir implementation/state/runs health
+make health
+make list
 ```
 
-Create a smoke task:
+Create a manual smoke task directly through the operator CLI:
 
 ```bash
 printf '%s' '研究任务' | python3 implementation/scripts/reliable_ctl.py \
@@ -54,8 +66,10 @@ printf '%s' '研究任务' | python3 implementation/scripts/reliable_ctl.py \
 
 ## Tests
 
+From the repository root:
+
 ```bash
-python3 -m compileall -q implementation/scripts implementation/plugins implementation/tests
-python3 -m unittest discover -s implementation/tests -v
-bash -n implementation/deploy/*.sh
+make test
 ```
+
+GitHub Actions invokes the same target so local validation and CI do not drift.
