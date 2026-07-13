@@ -2,6 +2,12 @@
 
 This repository coordinates multiple coding and research agents for finance research, including quantitative research, industry-trend research, data-source validation, report generation, and delivery gates.
 
+## Runtime operating instructions
+
+Before starting, inspecting, recovering, deploying, or modifying the production runtime, agents must read [`implementation/docs/AGENT_USAGE_GUIDE.md`](implementation/docs/AGENT_USAGE_GUIDE.md).
+
+The only supported deployed runtime is the SQLite pipeline under `implementation/`. Agents must not restore or invoke the removed v1 controller, old watchdog, old stage dispatcher, old trigger script, or a parallel native Hermes leaf workflow. Existing runs must be operated through `implementation/scripts/reliable_ctl.py`; direct database edits may not be used to force a stage or completion state.
+
 ## Non-negotiable principles
 
 1. **No fabricated financial facts.** Agents must not invent market data, financial statements, macro data, regulatory facts, company claims, citations, prices, dates, or source availability.
