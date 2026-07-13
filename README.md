@@ -9,6 +9,8 @@ The only supported production runtime is under [`implementation/`](implementatio
 It uses one SQLite-backed state machine for ingress, leased execution, retries,
 artifact validation, report persistence, and exact-target notifications.
 
+Agents must follow [`implementation/docs/AGENT_USAGE_GUIDE.md`](implementation/docs/AGENT_USAGE_GUIDE.md) before starting, inspecting, recovering, deploying, or modifying the runtime.
+
 ```text
 Feishu -> Hermes ingress -> SQLite queue -> supervised worker
         -> QUALIFY -> ACQUIRE -> VALIDATE -> ANALYZE -> REVIEW -> DELIVER
@@ -28,6 +30,7 @@ watchdog, and runs a cross-host health check.
 
 See:
 
+- [`implementation/docs/AGENT_USAGE_GUIDE.md`](implementation/docs/AGENT_USAGE_GUIDE.md) — required operating instructions for agents
 - [`implementation/README.md`](implementation/README.md) — runtime overview and commands
 - [`implementation/docs/IMPLEMENTATION.md`](implementation/docs/IMPLEMENTATION.md) — deployment/runbook
 - [`implementation/docs/CURRENT_STATE.md`](implementation/docs/CURRENT_STATE.md) — resolved root causes and validation
