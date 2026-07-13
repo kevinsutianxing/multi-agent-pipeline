@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.venv/
+venv/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Runtime databases and generated state
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+implementation/state/
+implementation/runs/
+state/
+runs/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+*~
+
+# Editor and OS metadata
+.DS_Store
+.idea/
+.vscode/
