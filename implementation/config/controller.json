@@ -1,0 +1,4 @@
+{
+  "stage_timeout_seconds": 1800,
+  "max_recovery_attempts": 2
+}

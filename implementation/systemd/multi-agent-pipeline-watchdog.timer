@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Multi-Agent Research Pipeline Watchdog every five minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+Persistent=true
+Unit=multi-agent-pipeline-watchdog.service
+
+[Install]
+WantedBy=timers.target
