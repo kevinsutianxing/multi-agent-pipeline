@@ -1,8 +1,0 @@
-[Unit]
-Description=Multi-Agent Research Pipeline Watchdog
-After=network-online.target fmdata.service deerflow.service
-
-[Service]
-Type=oneshot
-WorkingDirectory=/home/ubuntu/multi-agent-pipeline
-ExecStart=/home/ubuntu/multi-agent-pipeline/scripts/pipeline-watchdog.sh

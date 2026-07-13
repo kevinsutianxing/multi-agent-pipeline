@@ -1,0 +1,15 @@
+[Unit]
+Description=Multi-Agent Research Pipeline Notification Sender
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+Environment=HOME=/home/ubuntu
+EnvironmentFile=/etc/multi-agent-pipeline.env
+ExecStart=/usr/bin/env bash -lc 'read -r -a sender <<< "$PIPELINE_NOTIFY_CMD"; exec python3 "$PIPELINE_ROOT/scripts/reliable_notify.py" --db "$PIPELINE_DB" --runs-dir "$PIPELINE_RUNS_DIR" --timeout "$PIPELINE_NOTIFY_TIMEOUT_SECONDS" --command "${sender[@]}"'
+
+[Install]
+WantedBy=multi-user.target

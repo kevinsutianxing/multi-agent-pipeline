@@ -1,30 +1,47 @@
 #!/usr/bin/env python3
-"""Run hermescold as a constrained JSON-only stage executor."""
+"""Invoke the hermescold profile as a stateless pipeline stage executor."""
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 
 
 def main() -> int:
-    request = json.loads(sys.stdin.read()) if not sys.stdin.isatty() else {}
-    prompt = request.get("prompt") or ""
+    request = json.loads(sys.stdin.read())
+    prompt = str(request.get("prompt") or "")
     if not prompt:
-        prompt = sys.argv[1] if len(sys.argv) > 1 else ""
-    if not prompt:
-        raise SystemExit("A stage prompt is required")
-    command = [
-        "/home/ubuntu/.hermes/hermes-agent/venv/bin/python", "-m", "hermes_cli.main",
-        "--profile", "hermescold", "chat", "-Q", "--source", "tool",
-        "--skills", "hermescold-tech-research", "--max-turns", "20", "-q", prompt,
-    ]
-    result = subprocess.run(command, text=True, capture_output=True, timeout=900)
-    if result.returncode != 0:
-        sys.stderr.write(result.stderr)
-        return result.returncode
+        raise SystemExit("a non-empty prompt is required")
+    hermes_python = os.environ.get("HERMES_PYTHON", "/home/ubuntu/.hermes/hermes-agent/venv/bin/python")
+    profile = os.environ.get("PIPELINE_HERMESCOLD_PROFILE", "hermescold")
+    skill = os.environ.get("PIPELINE_HERMESCOLD_SKILL", "hermescold-tech-research")
+    result = subprocess.run(
+        [
+            hermes_python,
+            "-m",
+            "hermes_cli.main",
+            "--profile",
+            profile,
+            "chat",
+            "-Q",
+            "--source",
+            "tool",
+            "--skills",
+            skill,
+            "--max-turns",
+            os.environ.get("PIPELINE_HERMESCOLD_MAX_TURNS", "20"),
+            "-q",
+            prompt,
+        ],
+        text=True,
+        capture_output=True,
+        timeout=int(os.environ.get("PIPELINE_AGENT_TIMEOUT_SECONDS", "900")),
+        check=False,
+    )
     sys.stdout.write(result.stdout)
-    return 0
+    sys.stderr.write(result.stderr)
+    return result.returncode
 
 
 if __name__ == "__main__":

@@ -1,0 +1,12 @@
+[Unit]
+Description=Flush research pipeline notifications
+
+[Timer]
+OnBootSec=45s
+OnUnitInactiveSec=30s
+AccuracySec=1s
+Persistent=true
+Unit=multi-agent-pipeline-notify.service
+
+[Install]
+WantedBy=timers.target

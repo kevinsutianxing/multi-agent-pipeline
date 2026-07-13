@@ -1,0 +1,12 @@
+[Unit]
+Description=Run the research pipeline worker continuously
+
+[Timer]
+OnBootSec=30s
+OnUnitInactiveSec=15s
+AccuracySec=1s
+Persistent=true
+Unit=multi-agent-pipeline-worker.service
+
+[Install]
+WantedBy=timers.target

@@ -1,29 +1,43 @@
-# Current State and Known Gaps
+# Current State
 
-## What exists
+## Resolved
 
-- `scripts/reliable_pipeline.py` implements a SQLite-backed v2 state machine.
-- `scripts/reliable_worker.py` persists every worker attempt and raw response.
-- `scripts/reliable_notify.py` delivers durable outbox entries and marks them sent only after command success.
-- Unit and isolated end-to-end tests cover duplicate requests, invalid JSON, worker recovery, retry exhaustion, notification replay, stage events, and a fake six-stage run.
+- One SQLite-backed state machine replaces the disconnected v1/v2 paths.
+- Repository paths consistently include `implementation/`.
+- A supervised worker timer consumes pending jobs.
+- A supervised notifier timer flushes durable messages.
+- Worker jobs include the research question and all prior validated artifacts.
+- Model output is stored raw, then normalized from plain JSON, fenced JSON, wrapped results, or prefaced output.
+- SQLite claims are atomic and lease-aware; stale workers cannot submit results.
+- Notifications retain the exact Feishu conversation target recorded at ingress.
+- The Hermes ingress hook uses stdin for the research question and returns `skip`, preventing shell injection and duplicate native dispatch.
+- The old watchdog/controller files and units are removed.
+- GitHub Actions runs compile, unit/integration, and shell syntax checks.
 
-## What was observed in live use
+## Local validation
 
-- A live Codex qualification response met the minimal artifact contract and advanced one stage.
-- Hermescold acquisition returned substantial raw research text but not the required JSON contract twice. V2 retained both raw responses and correctly blocked the run rather than advancing.
-- `hermeskevin` can still bypass v2 and use its native leaf-subagent workflow. The current `agent:start` hook creates a v2 run but does not hard-intercept/skip the subsequent model dispatch.
-- Existing v1 alert messages can appear alongside v2 messages and confuse users; v1 needs retirement once v2 owns the ingress path.
-- V2 event/outbox persistence is implemented and tested. Production notification delivery was tested with a one-shot sender command, but a supervised sender service/timer is not yet installed.
-- A provider-side GLM proxy queue saturation (`HTTP 503 queue full/timeout`) can block Hermes conversation replies independently of the pipeline.
+The refactor was validated with 17 isolated tests covering:
 
-## Required work before production enablement
+- duplicate ingress idempotency;
+- question and prior-artifact propagation;
+- full six-stage completion and report persistence;
+- JSON normalization variants;
+- retry and hard-block behavior;
+- atomic lease ownership and stale-worker rejection;
+- legacy SQLite migration;
+- deterministic acquired-data validation;
+- durable exact-target notifications;
+- Feishu ingress interception and safe stdin transport.
 
-1. Move research-trigger interception to the gateway pre-dispatch hook and return `skip` after creating a v2 run.
-2. Add a supervised v2 worker scheduler and a supervised notification sender service.
-3. Replace direct JSON-only agent contracts with raw-output capture plus a deterministic parser/normalizer, then validate the normalized artifact.
-4. Retire v1 trigger/watchdog/alert routing after migration.
-5. Add live integration tests for Feishu ingress, Codex, Hermescold, Claude review, and notification sender restart recovery.
+## Environment-dependent checks
 
-## Safety position
+The following can only be confirmed on HK43/SZ81 during deployment:
 
-V2 should not be advertised as a production autonomous research system until the ingress hard-intercept, scheduler, normalizer, and supervised sender are complete.
+- SSH aliases and host reachability;
+- Codex and Claude authentication;
+- `hermescold` profile and skill availability;
+- Hermes gateway service name;
+- provider availability and rate limits;
+- fmdata/DeerFlow data-source health.
+
+Run `implementation/deploy/deploy-all.sh` and then `implementation/deploy/healthcheck.sh` on SZ81. A provider-side 503 remains an external failure; the pipeline now records it, retries within budget, and blocks visibly rather than silently advancing.
