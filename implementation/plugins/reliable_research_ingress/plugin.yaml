@@ -1,3 +1,5 @@
 name: reliable_research_ingress
-version: 0.1.0
-description: Hard-intercepts Feishu research triggers and creates v2 runs.
+version: 1.0.0
+description: Hard-intercept Feishu research requests and route them into the durable pipeline.
+provides_hooks:
+  - pre_gateway_dispatch

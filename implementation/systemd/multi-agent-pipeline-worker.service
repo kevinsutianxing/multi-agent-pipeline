@@ -1,0 +1,16 @@
+[Unit]
+Description=Multi-Agent Research Pipeline Worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+Environment=HOME=/home/ubuntu
+EnvironmentFile=/etc/multi-agent-pipeline.env
+ExecStart=/usr/bin/env bash -lc 'exec python3 "$PIPELINE_ROOT/scripts/reliable_worker.py" --db "$PIPELINE_DB" --runs-dir "$PIPELINE_RUNS_DIR" --max-attempts "$PIPELINE_MAX_ATTEMPTS" --lease-seconds "$PIPELINE_LEASE_SECONDS" --heartbeat-seconds "$PIPELINE_HEARTBEAT_SECONDS" --timeout "$PIPELINE_AGENT_TIMEOUT_SECONDS" --drain 1 --command python3 "$PIPELINE_ROOT/scripts/reliable_agent_adapter.py"'
+Nice=5
+
+[Install]
+WantedBy=multi-user.target
