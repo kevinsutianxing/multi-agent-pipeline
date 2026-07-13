@@ -2,11 +2,34 @@
 
 This repository coordinates multiple coding and research agents for finance research, including quantitative research, industry-trend research, data-source validation, report generation, and delivery gates.
 
+## Required reading and precedence
+
+Before acting in this repository, agents must read:
+
+1. [`docs/PROJECT_MAP.md`](docs/PROJECT_MAP.md) — repository ownership boundaries.
+2. [`docs/MAINTENANCE.md`](docs/MAINTENANCE.md) — change, migration, and release discipline.
+3. [`implementation/docs/AGENT_USAGE_GUIDE.md`](implementation/docs/AGENT_USAGE_GUIDE.md) — production runtime operation.
+4. [`docs/DATA_TRUST_CONTRACT.md`](docs/DATA_TRUST_CONTRACT.md) — data provenance and validation.
+
+This constitution has precedence over lower-level instructions. No README, example, prompt, or operator shortcut may authorize bypassing a rule in this file.
+
 ## Runtime operating instructions
 
-Before starting, inspecting, recovering, deploying, or modifying the production runtime, agents must read [`implementation/docs/AGENT_USAGE_GUIDE.md`](implementation/docs/AGENT_USAGE_GUIDE.md).
+The only supported deployed runtime is the SQLite pipeline under `implementation/`. Agents must not restore or invoke the removed v1 controller, old watchdog, old stage dispatcher, old trigger script, or a parallel native Hermes leaf workflow.
 
-The only supported deployed runtime is the SQLite pipeline under `implementation/`. Agents must not restore or invoke the removed v1 controller, old watchdog, old stage dispatcher, old trigger script, or a parallel native Hermes leaf workflow. Existing runs must be operated through `implementation/scripts/reliable_ctl.py`; direct database edits may not be used to force a stage or completion state.
+Existing runs must be operated through `implementation/scripts/reliable_ctl.py` or the canonical root `Makefile`; direct database edits may not be used to force a stage or completion state.
+
+## Repository organization rules
+
+- Production runtime code, plugins, service units, deployment scripts, and runtime tests belong under `implementation/`.
+- Repository-wide governance and architecture belong under `docs/`.
+- Machine-readable contracts belong under `schemas/`.
+- Machine-readable lifecycle definitions belong under `loop/`.
+- `examples/` and `pipeline-template.js` are reference-only and must never be invoked by production services.
+- Do not add production scripts, daemons, databases, queues, watchdogs, dispatchers, or triggers at the repository root.
+- Do not create a second source of truth by copying policies or commands into another document. Link to the authoritative document and update it directly.
+- A new top-level directory requires an owner, purpose, project-map update, and confirmation that it does not create another production path.
+- Generated state, reports, databases, credentials, caches, and deployment archives must not be committed.
 
 ## Non-negotiable principles
 
@@ -146,14 +169,23 @@ Agents must escalate before changing:
 A PR or final delivery must include:
 
 ```text
-- task definition
+- task definition and change class
+- root cause or motivation
 - files changed
-- data sources touched
+- behavior before and after
+- data sources and methodology touched
+- migration and deployment impact
 - validation commands run
 - test commands run
 - known limitations
 - reviewer result
-- remaining risks
+- remaining environment-dependent risks
 ```
 
-No agent may claim merge readiness unless deterministic gates and independent review pass.
+The canonical repository validation command is:
+
+```bash
+make test
+```
+
+No agent may claim merge readiness unless deterministic gates and independent review pass. No agent may claim live deployment success based only on isolated tests or GitHub Actions.
