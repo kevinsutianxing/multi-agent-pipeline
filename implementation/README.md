@@ -2,6 +2,8 @@
 
 This directory contains the repository's only supported deployable runtime. The earlier file-state controller and watchdog were removed because they created a second, disconnected execution path.
 
+Agents operating or modifying this runtime must first read [`docs/AGENT_USAGE_GUIDE.md`](docs/AGENT_USAGE_GUIDE.md). It defines supported commands, stage contracts, recovery rules, prohibited legacy paths, and the definition of done.
+
 ## Runtime
 
 ```text
